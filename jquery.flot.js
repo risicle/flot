@@ -102,7 +102,8 @@
                         lineWidth: 2, // in pixels
                         fill: false,
                         fillColor: null,
-                        steps: false
+                        steps: false,
+                        stepsInteractivityAsBar: false
                     },
                     bars: {
                         show: false,
@@ -2366,7 +2367,8 @@
                 if (axisy.options.inverseTransform)
                     maxy = Number.MAX_VALUE;
                 
-                if (s.lines.show || s.points.show) {
+                if ((s.lines.show &&
+                    !(s.lines.steps && s.lines.fill !== false && s.lines.stepsInteractivityAsBar)) || s.points.show) {
                     for (j = 0; j < points.length; j += ps) {
                         var x = points[j], y = points[j + 1];
                         if (x == null)
@@ -2392,7 +2394,26 @@
                         }
                     }
                 }
-                    
+                
+                if (s.lines.show && s.lines.steps &&
+                    s.lines.fill !== false && s.lines.stepsInteractivityAsBar
+                    && !item) { // no other point can be nearby
+                    for (j = 0; j < points.length - ps; j += ps) {
+                        // we iterate through all points even though some will be inserted
+                        // dummies - for dummy itervals x0 should == x1, so it won't be
+                        // possible for the x condition to be met.
+                        // for any intervals where we are able to meet the x condition,
+                        // y0 should equal the hypothetical y1.
+                        var x0 = points[j], y0 = points[j + 1] , x1 = points[j + ps];
+                        if (x0 == null || x1 == null)
+                            continue;
+
+                        if (mx < Math.max(x0, x1) && mx >= Math.min(x0, x1) &&
+                            my <= y0)
+                                item = [i, j / ps];
+                    }
+                }
+                
                 if (s.bars.show && !item) { // no other point can be nearby
                     var barLeft = s.bars.align == "left" ? 0 : -s.bars.barWidth/2,
                         barRight = barLeft + s.bars.barWidth;
