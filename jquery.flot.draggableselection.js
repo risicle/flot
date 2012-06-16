@@ -290,7 +290,7 @@ The plugin allso adds the following methods to the plot object:
 
         // function taken from markings support in Flot
         function extractRange(ranges, coord) {
-            var axis, from, to, key, axes = plot.getAxes();
+            var axis, from, to, key, axes = plot.getAxes(), found_axis = false;
 
             for (var k in axes) {
                 axis = axes[k];
@@ -301,10 +301,14 @@ The plugin allso adds the following methods to the plot object:
                     if (ranges[key]) {
                         from = ranges[key].from;
                         to = ranges[key].to;
+                        found_axis = true;
                         break;
                     }
                 }
             }
+
+            if (!found_axis)
+                return null;
 
             // auto-reverse as an added bonus
             if (from != null && to != null && from > to) {
@@ -312,43 +316,52 @@ The plugin allso adds the following methods to the plot object:
                 from = to;
                 to = tmp;
             }
-            
+
             return { from: from, to: to, axis: axis };
         }
         
         function setSelection(ranges, preventEvent) {
-            var axis, range, o = plot.getOptions();
+            var axis, o = plot.getOptions(),
+                x_range = extractRange(ranges, "x"),
+                y_range = extractRange(ranges, "y"),
+                desired_min_x, desired_max_x, desired_change_x = false,
+                desired_min_y, desired_max_y, desired_change_y = false;
 
-            var original_first_x = selection.first.x ,
-            original_second_x = selection.second.x ,
-            original_first_y = selection.first.y ,
-            original_second_y = selection.second.y ;
+            if (x_range !== null) {
+                desired_min_x = x_range.axis.p2c(x_range.from);
+                desired_max_x = x_range.axis.p2c(x_range.to);
+                if (desired_min_x !== selection.first.x || desired_max_x !== selection.second.x)
+                    desired_change_x = true;
+            }
+
+            if (y_range !== null) {
+                desired_min_y = y_range.axis.p2c(y_range.from);
+                desired_max_y = y_range.axis.p2c(y_range.to);
+                if (desired_min_y !== selection.first.y || desired_max_y !== selection.second.y)
+                    desired_change_y = true;
+            }
+
+            if (!(desired_change_x || desired_change_y))
+                // there's nothing to change
+                return;
 
             if (o.draggableselection.mode == "y") {
                 selection.first.x = 0;
                 selection.second.x = plot.width() - 1;
             }
-            else {
-                range = extractRange(ranges, "x");
-
-                selection.first.x = range.axis.p2c(range.from);
-                selection.second.x = range.axis.p2c(range.to);
+            else if (x_range !== null) {
+                selection.first.x = desired_min_x;
+                selection.second.x = desired_max_x;
             }
 
             if (o.draggableselection.mode == "x") {
                 selection.first.y = 0;
                 selection.second.y = plot.height() - 1;
             }
-            else {
-                range = extractRange(ranges, "y");
-
-                selection.first.y = range.axis.p2c(range.from);
-                selection.second.y = range.axis.p2c(range.to);
+            else if (y_range !== null) {
+                selection.first.y = desired_min_y;
+                selection.second.y = desired_max_y;
             }
-
-            if ( original_first_x === selection.first.x && original_second_x === selection.second.x && original_first_y === selection.first.y && original_second_y === selection.second.y )
-                // nothing's actually changed
-                return;
 
             plot.triggerRedrawOverlay();
             if ( ! preventEvent )
