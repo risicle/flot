@@ -67,41 +67,52 @@ Flot plugin for showing bar-style highlights for stepped line series
             placeholder.on("plothover plotclick", onPlotHoverClick);
         });
 
-        plot.hooks.drawOverlay.push(function (plot, ctx) {
-            if (highlightindex == null)
-                return;
-
-            if ((highlightindex+1) * highlightseries.datapoints.pointsize >= highlightseries.datapoints.points.length)
+        plot.coordsFromIndexSeries = function (index, series) {
+            if ((index+1) * series.datapoints.pointsize >= series.datapoints.points.length)
                 // there's no "next" point for the other bound of the rectangle
-                return;
+                return null;
 
-            var plotOffset = plot.getPlotOffset();
-            var point0 = highlightseries.datapoints.points.slice(highlightindex * highlightseries.datapoints.pointsize, (highlightindex+1) * highlightseries.datapoints.pointsize);
-            var point1 = highlightseries.datapoints.points.slice((highlightindex+1) * highlightseries.datapoints.pointsize, (highlightindex+2) * highlightseries.datapoints.pointsize);
+            var point0 = series.datapoints.points.slice(index * series.datapoints.pointsize, (index+1) * series.datapoints.pointsize);
+            var point1 = series.datapoints.points.slice((index+1) * series.datapoints.pointsize, (index+2) * series.datapoints.pointsize);
 
             var left = Math.min(point0[0],point1[0]);
             var right = Math.max(point0[0],point1[0]);
             var bottom = Math.min(point0[1],0.0);
             var top = Math.max(point0[1],0.0);
 
-            if ( left > highlightseries.xaxis.max || right < highlightseries.xaxis.min || top < highlightseries.yaxis.min || bottom > highlightseries.yaxis.max )
+            if ( left > series.xaxis.max || right < series.xaxis.min || top < series.yaxis.min || bottom > series.yaxis.max )
+                // rect is not in the viewport
+                return null;
+
+            left = Math.max(left,series.xaxis.min);
+            right = Math.min(right,series.xaxis.max);
+            bottom = Math.min(bottom,series.yaxis.max);
+            top = Math.max(top,series.yaxis.min);
+
+            r = {
+                x: series.xaxis.p2c(left),
+                y: series.yaxis.p2c(top)
+            };
+            r.w = series.xaxis.p2c(right) - r.x;
+            r.h = series.yaxis.p2c(bottom) - r.y;
+
+            return r;
+        };
+
+        plot.hooks.drawOverlay.push(function (plot, ctx) {
+            if (highlightindex == null)
                 return;
 
-            left = Math.max(left,highlightseries.xaxis.min);
-            right = Math.min(right,highlightseries.xaxis.max);
-            bottom = Math.min(bottom,highlightseries.yaxis.max);
-            top = Math.max(top,highlightseries.yaxis.min);
+            var coords = plot.coordsFromIndexSeries (highlightindex, highlightseries);
+            if (!coords)
+                return;
 
-            var x = highlightseries.xaxis.p2c(left);
-            var y = highlightseries.yaxis.p2c(top);
-            var w = highlightseries.xaxis.p2c(right) - x;
-            var h = highlightseries.yaxis.p2c(bottom) - y;
-
+            var plotOffset = plot.getPlotOffset();
             ctx.save();
                 ctx.translate(plotOffset.left, plotOffset.top);
                 ctx.fillStyle = $.color.parse(highlightseries.lines.stepHighlightColor).scale('a', 0.25).toString();
 
-                ctx.fillRect(x,y,w,h);
+                ctx.fillRect(coords.x, coords.y, coords.w, coords.h);
             ctx.restore();
         });
 
