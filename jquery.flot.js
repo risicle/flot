@@ -1419,7 +1419,7 @@
 
             axis.tickGenerator = generator;
             if ($.isFunction(opts.tickFormatter))
-                axis.tickFormatter = function (v, axis) { return "" + opts.tickFormatter(v, axis); };
+                axis.tickFormatter = function () { return "" + opts.tickFormatter.apply(this, arguments); };
             else
                 axis.tickFormatter = formatter;
         }
