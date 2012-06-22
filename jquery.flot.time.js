@@ -269,14 +269,17 @@ for details.
                         return ticks;
                     };
 
-                    axis.tickFormatter = function (v, axis) {
+                    axis.tickFormatter = function (v, axis, tickSize) {
                         var d = dateGenerator(v, axis.options);
+
+                        // allow tickSize argument to override tickSize used
+                        tickSize = tickSize || axis.tickSize;
 
                         // first check global format
                         if (opts.timeformat != null)
                             return formatDate(d, opts.timeformat, opts.monthNames, opts.dayNames);
                         
-                        var t = axis.tickSize[0] * timeUnitSize[axis.tickSize[1]];
+                        var t = tickSize[0] * timeUnitSize[tickSize[1]];
                         var span = axis.max - axis.min;
                         var suffix = (opts.twelveHourClock) ? " %p" : "";
                         var hourCode = (opts.twelveHourClock) ? "%I" : "%H";
