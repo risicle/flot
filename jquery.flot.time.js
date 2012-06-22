@@ -56,6 +56,8 @@ for details.
                 case 'l': c = leftPad(hours12, " "); break;
                 case 'm': c = leftPad(d.getMonth() + 1); break;
                 case 'M': c = leftPad(d.getMinutes()); break;
+                // quarters not in Open Group's strftime specification
+                case 'q': c = "Q" + (Math.floor(d.getMonth()/3) + 1); break;
                 case 'S': c = leftPad(d.getSeconds()); break;
                 case 'y': c = leftPad(d.getFullYear() % 100); break;
                 case 'Y': c = "" + d.getFullYear(); break;
@@ -129,6 +131,7 @@ for details.
         "hour": 60 * 60 * 1000,
         "day": 24 * 60 * 60 * 1000,
         "month": 30 * 24 * 60 * 60 * 1000,
+        "quarter": 3 * 30 * 24 * 60 * 60 * 1000,
         "year": 365.2425 * 24 * 60 * 60 * 1000
     };
 
@@ -143,7 +146,7 @@ for details.
         [8, "hour"], [12, "hour"],
         [1, "day"], [2, "day"], [3, "day"],
         [0.25, "month"], [0.5, "month"], [1, "month"],
-        [2, "month"], [3, "month"], [6, "month"],
+        [2, "month"], [1, "quarter"], [2, "quarter"],
         [1, "year"]
     ];
 
@@ -212,6 +215,8 @@ for details.
                             d.setHours(floorInBase(d.getHours(), tickSize));
                         if (unit == "month")
                             d.setMonth(floorInBase(d.getMonth(), tickSize));
+                        if (unit == "quarter")
+                            d.setMonth(3*floorInBase(d.getMonth()/3, tickSize));
                         if (unit == "year")
                             d.setFullYear(floorInBase(d.getFullYear(), tickSize));
                         
@@ -225,6 +230,10 @@ for details.
                             d.setHours(0);
                         if (step >= timeUnitSize.day * 4)
                             d.setDate(1);
+                        if (step >= timeUnitSize.month * 2)
+                            d.setMonth(floorInBase(d.getMonth(), 3));
+                        if (step >= timeUnitSize.quarter * 2)
+                            d.setMonth(floorInBase(d.getMonth(), 6));
                         if (step >= timeUnitSize.year)
                             d.setMonth(0);
 
@@ -234,21 +243,21 @@ for details.
                             prev = v;
                             v = d.getTime();
                             ticks.push(v);
-                            if (unit == "month") {
+                            if (unit == "month" || unit == "quarter") {
                                 if (tickSize < 1) {
-                                    // a bit complicated - we'll divide the month
+                                    // a bit complicated - we'll divide the month/quarter
                                     // up but we need to take care of fractions
                                     // so we don't end up in the middle of a day
                                     d.setDate(1);
                                     var start = d.getTime();
-                                    d.setMonth(d.getMonth() + 1);
+                                    d.setMonth(d.getMonth() + (unit == "quarter" ? 3 : 1));
                                     var end = d.getTime();
                                     d.setTime(v + carry * timeUnitSize.hour + (end - start) * tickSize);
                                     carry = d.getHours();
                                     d.setHours(0);
                                 }
                                 else
-                                    d.setMonth(d.getMonth() + tickSize);
+                                    d.setMonth(d.getMonth() + tickSize*(unit == "quarter" ? 3 : 1));
                             }
                             else if (unit == "year") {
                                 d.setFullYear(d.getFullYear() + tickSize);
@@ -260,14 +269,17 @@ for details.
                         return ticks;
                     };
 
-                    axis.tickFormatter = function (v, axis) {
+                    axis.tickFormatter = function (v, axis, tickSize) {
                         var d = dateGenerator(v, axis.options);
+
+                        // allow tickSize argument to override tickSize used
+                        tickSize = tickSize || axis.tickSize;
 
                         // first check global format
                         if (opts.timeformat != null)
                             return formatDate(d, opts.timeformat, opts.monthNames, opts.dayNames);
                         
-                        var t = axis.tickSize[0] * timeUnitSize[axis.tickSize[1]];
+                        var t = tickSize[0] * timeUnitSize[tickSize[1]];
                         var span = axis.max - axis.min;
                         var suffix = (opts.twelveHourClock) ? " %p" : "";
                         var hourCode = (opts.twelveHourClock) ? "%I" : "%H";
@@ -282,12 +294,14 @@ for details.
                         }
                         else if (t < timeUnitSize.month)
                             fmt = "%b %d";
-                        else if (t < timeUnitSize.year) {
+                        else if (t < timeUnitSize.quarter) {
                             if (span < timeUnitSize.year)
                                 fmt = "%b";
                             else
                                 fmt = "%b %Y";
                         }
+                        else if (t < timeUnitSize.year)
+                            fmt = "%q %Y";
                         else
                             fmt = "%Y";
                         
