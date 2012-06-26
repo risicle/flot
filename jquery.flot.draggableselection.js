@@ -416,7 +416,7 @@ The plugin allso adds the following methods to the plot object:
 
                 ctx.strokeStyle = c.scale('a', 0.8).toString();
                 ctx.lineWidth = 1;
-                ctx.lineJoin = "round";
+                ctx.lineCap = "round";
                 ctx.fillStyle = c.scale('a', 0.4).toString();
 
                 var x = Math.min(selection.first.x, selection.second.x),
@@ -426,18 +426,35 @@ The plugin allso adds the following methods to the plot object:
 
                 if ( o.draggableselection.invertFill )
                 {
-                    ctx.fillRect ( 0 , 0 , selection.first.x , plot.height () );
-                    ctx.fillRect ( selection.second.x , 0 , plot.width () - selection.second.x , plot.height () );
+                    if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                        ctx.fillRect ( 0 , 0 , selection.first.x , plot.height () );
+                        ctx.fillRect ( selection.second.x , 0 , plot.width () - selection.second.x , plot.height () );
+                    }
 
-                    ctx.fillRect ( selection.first.x , 0 , selection.second.x - selection.first.x , selection.first.y );
-                    ctx.fillRect ( selection.first.x , selection.second.y , selection.second.x - selection.first.x , plot.height () - selection.second.y );
+                    if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                        ctx.fillRect ( selection.first.x , 0 , selection.second.x - selection.first.x , selection.first.y );
+                        ctx.fillRect ( selection.first.x , selection.second.y , selection.second.x - selection.first.x , plot.height () - selection.second.y );
+                    }
                 }
                 else
                 {
                     ctx.fillRect(x, y, w, h);
                 }
 
-                ctx.strokeRect(x, y, w, h);
+                ctx.beginPath ();
+                if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                    ctx.moveTo ( x , y );
+                    ctx.lineTo ( x , y + h );
+                    ctx.moveTo ( x + w , y );
+                    ctx.lineTo ( x + w , y + h );
+                }
+                if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                    ctx.moveTo ( x , y );
+                    ctx.lineTo ( x + w , y );
+                    ctx.moveTo ( x , y + h );
+                    ctx.lineTo ( x + w , y + h );
+                }
+                ctx.stroke();
 
                 ctx.restore();
             }
