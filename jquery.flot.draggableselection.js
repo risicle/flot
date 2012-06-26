@@ -381,6 +381,16 @@ The plugin allso adds the following methods to the plot object:
             }
         }
 
+        function emitEdgeHandle ( ctx ) {
+            // expecting ctx's transform stack to be set up to
+            // allow us to work in -1 to +1 domain
+            ctx.moveTo ( 0 , 1 );
+            ctx.lineTo ( 1 , 0 );
+            ctx.lineTo ( 0 , -1 );
+            ctx.lineTo ( -1 , 0 );
+            ctx.closePath ();
+        }
+
         plot.clearSelection = clearSelection;
         plot.setSelection = setSelection;
         plot.getSelection = getSelection;
@@ -457,6 +467,36 @@ The plugin allso adds the following methods to the plot object:
                 }
                 ctx.stroke();
 
+                ctx.fillStyle = color.toString();
+                ctx.beginPath ();
+                if ( o.draggableselection.edgeHandleSize ) {
+                    if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                        ctx.save ();
+                            ctx.translate ( x , y + (h/2) );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                        ctx.save ();
+                            ctx.translate ( x + w , y + (h/2) );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                    }
+                    if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                        ctx.save ();
+                            ctx.translate ( x + (w/2) , y );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                        ctx.save ();
+                            ctx.translate ( x + (w/2) , y + h );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                    }
+                }
+                ctx.fill();
+
                 ctx.restore();
             }
         });
@@ -478,6 +518,7 @@ The plugin allso adds the following methods to the plot object:
                 color: "rgba(232,207,172,0.8)",
                 fillColor: null,
                 edgetolerance: 4 ,
+                edgeHandleSize: 6 ,
                 edgeLineWidth: 1 ,
                 invertFill: false
             }
