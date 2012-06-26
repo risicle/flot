@@ -26,7 +26,8 @@ Flot plugin for showing bar-style highlights for stepped line series
             else
             {
                 if (!(item.series.lines.show && item.series.lines.steps &&
-                    item.series.lines.fill !== false && item.series.lines.stepsInteractivityAsBar &&
+                    ( (item.series.lines.fill !== false && item.series.lines.stepsInteraction === "bar") ||
+                    (item.series.lines.lineWidth != 0 && item.series.lines.stepsInteraction === "line") ) &&
                     item.series.lines.stepHighlight))
                     return;
                 plot.stepHighlight (item.series, item.dataIndex);
@@ -55,7 +56,8 @@ Flot plugin for showing bar-style highlights for stepped line series
             for (var i = 0; i < series.length; i++) {
                 s = series[i];
                 if (s.lines.show && s.lines.steps &&
-                    s.lines.fill !== false && s.lines.stepsInteractivityAsBar &&
+                    ( (s.lines.fill !== false && s.lines.stepsInteraction === "bar") ||
+                    (s.lines.lineWidth != 0 && s.lines.stepsInteraction === "line") ) &&
                     s.lines.stepHighlight ) {
                     enabled = true;
                     break;

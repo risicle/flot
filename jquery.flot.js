@@ -104,7 +104,7 @@
                         fill: false,
                         fillColor: null,
                         steps: false,
-                        stepsInteractivityAsBar: false,
+                        stepsInteraction: false, // false, "bar" or "line"
                         setupDrawContext: null,
                         setupDrawFillContext: null
                     },
@@ -2224,7 +2224,7 @@
                     maxy = Number.MAX_VALUE;
                 
                 if ((s.lines.show &&
-                    !(s.lines.steps && s.lines.fill !== false && s.lines.stepsInteractivityAsBar)) || s.points.show) {
+                    !(s.lines.steps && s.lines.stepsInteraction)) || s.points.show) {
                     for (j = 0; j < points.length; j += ps) {
                         var x = points[j], y = points[j + 1];
                         if (x == null)
@@ -2252,14 +2252,44 @@
                 }
                 
                 if (s.lines.show && s.lines.steps &&
-                    s.lines.fill !== false && s.lines.stepsInteractivityAsBar
-                    && !item) { // no other point can be nearby
+                    s.lines.lineWidth !== 0 && s.lines.stepsInteraction === "line" &&
+                    !item) { // no other point can be nearby
+                    // "find" the actual step itself.
                     for (j = 0; j < points.length - ps; j += ps) {
+                        // we're only interested in the mouse being over the "horizontal"
+                        // steps as the vertical steps are considered to be infinitessimal
+                        // non-data.
                         // we iterate through all points even though some will be inserted
                         // dummies - for dummy itervals x0 should == x1, so it won't be
                         // possible for the x condition to be met.
                         // for any intervals where we are able to meet the x condition,
-                        // y0 should equal the hypothetical y1.
+                        // y at x0 should equal y at x1.
+                        var x0 = points[j] , x1 = points[j + ps], y, y0, y1;
+                        if (x0 == null || x1 == null)
+                            continue;
+
+                        x0 = axisx.p2c(x0);
+                        x1 = axisx.p2c(x1);
+                        y = axisy.p2c(points[j + 1]);
+                        y0 = Math.floor(y - s.lines.lineWidth/2);
+                        y1 = Math.ceil(y + s.lines.lineWidth/2);
+
+                        if (mouseX < Math.max(x0, x1) && mouseX >= Math.min(x0, x1) &&
+                            mouseY < y1 && mouseY >= y0)
+                                item = [i, j / ps];
+                    }
+                }
+                
+                if (s.lines.show && s.lines.steps &&
+                    s.lines.fill !== false && s.lines.stepsInteraction === "bar" &&
+                    !item) { // no other point can be nearby
+                    // "find" the bar-like area beneath a step.
+                    for (j = 0; j < points.length - ps; j += ps) {
+                        // as above, we iterate through all points even though some will be inserted
+                        // dummies - for dummy itervals x0 should == x1, so it won't be
+                        // possible for the x condition to be met.
+                        // for any intervals where we are able to meet the x condition,
+                        // y at x0 should equal y at x1.
                         var x0 = points[j], y0 = points[j + 1] , x1 = points[j + ps], y1 = ps > 2 ? points[j + 2] : 0;
                         if (x0 == null || x1 == null)
                             continue;
