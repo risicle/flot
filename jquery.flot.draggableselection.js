@@ -381,6 +381,16 @@ The plugin allso adds the following methods to the plot object:
             }
         }
 
+        function emitEdgeHandle ( ctx ) {
+            // expecting ctx's transform stack to be set up to
+            // allow us to work in -1 to +1 domain
+            ctx.moveTo ( 0 , 1 );
+            ctx.lineTo ( 1 , 0 );
+            ctx.lineTo ( 0 , -1 );
+            ctx.lineTo ( -1 , 0 );
+            ctx.closePath ();
+        }
+
         plot.clearSelection = clearSelection;
         plot.setSelection = setSelection;
         plot.getSelection = getSelection;
@@ -412,12 +422,13 @@ The plugin allso adds the following methods to the plot object:
                 ctx.save();
                 ctx.translate(plotOffset.left, plotOffset.top);
 
-                var c = $.color.parse(o.draggableselection.color);
+                var color = $.color.parse(o.draggableselection.color);
+                var fillColor = o.draggableselection.fillColor ? $.color.parse(o.draggableselection.fillColor) : $.color.parse(o.draggableselection.color).scale ( "a" , 0.5 );
 
-                ctx.strokeStyle = c.scale('a', 0.8).toString();
-                ctx.lineWidth = 1;
-                ctx.lineJoin = "round";
-                ctx.fillStyle = c.scale('a', 0.4).toString();
+                ctx.strokeStyle = color.toString();
+                ctx.lineWidth = o.draggableselection.edgeLineWidth;
+                ctx.lineCap = "round";
+                ctx.fillStyle = fillColor.toString();
 
                 var x = Math.min(selection.first.x, selection.second.x),
                     y = Math.min(selection.first.y, selection.second.y),
@@ -426,18 +437,65 @@ The plugin allso adds the following methods to the plot object:
 
                 if ( o.draggableselection.invertFill )
                 {
-                    ctx.fillRect ( 0 , 0 , selection.first.x , plot.height () );
-                    ctx.fillRect ( selection.second.x , 0 , plot.width () - selection.second.x , plot.height () );
+                    if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                        ctx.fillRect ( 0 , 0 , selection.first.x , plot.height () );
+                        ctx.fillRect ( selection.second.x , 0 , plot.width () - selection.second.x , plot.height () );
+                    }
 
-                    ctx.fillRect ( selection.first.x , 0 , selection.second.x - selection.first.x , selection.first.y );
-                    ctx.fillRect ( selection.first.x , selection.second.y , selection.second.x - selection.first.x , plot.height () - selection.second.y );
+                    if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                        ctx.fillRect ( selection.first.x , 0 , selection.second.x - selection.first.x , selection.first.y );
+                        ctx.fillRect ( selection.first.x , selection.second.y , selection.second.x - selection.first.x , plot.height () - selection.second.y );
+                    }
                 }
                 else
                 {
                     ctx.fillRect(x, y, w, h);
                 }
 
-                ctx.strokeRect(x, y, w, h);
+                ctx.beginPath ();
+                if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                    ctx.moveTo ( x , y );
+                    ctx.lineTo ( x , y + h );
+                    ctx.moveTo ( x + w , y );
+                    ctx.lineTo ( x + w , y + h );
+                }
+                if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                    ctx.moveTo ( x , y );
+                    ctx.lineTo ( x + w , y );
+                    ctx.moveTo ( x , y + h );
+                    ctx.lineTo ( x + w , y + h );
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = color.toString();
+                ctx.beginPath ();
+                if ( o.draggableselection.edgeHandleSize ) {
+                    if ( o.draggableselection.mode == "x" || o.draggableselection.mode == "xy") {
+                        ctx.save ();
+                            ctx.translate ( x , y + (h/2) );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                        ctx.save ();
+                            ctx.translate ( x + w , y + (h/2) );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                    }
+                    if ( o.draggableselection.mode == "y" || o.draggableselection.mode == "xy") {
+                        ctx.save ();
+                            ctx.translate ( x + (w/2) , y );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                        ctx.save ();
+                            ctx.translate ( x + (w/2) , y + h );
+                            ctx.scale ( o.draggableselection.edgeHandleSize , o.draggableselection.edgeHandleSize );
+                            emitEdgeHandle ( ctx );
+                        ctx.restore ();
+                    }
+                }
+                ctx.fill();
 
                 ctx.restore();
             }
@@ -457,8 +515,11 @@ The plugin allso adds the following methods to the plot object:
         options: {
             draggableselection: {
                 mode: null, // one of null, "x", "y" or "xy"
-                color: "#e8cfac",
+                color: "rgba(232,207,172,0.8)",
+                fillColor: null,
                 edgetolerance: 4 ,
+                edgeHandleSize: 6 ,
+                edgeLineWidth: 1 ,
                 invertFill: false
             }
         },
