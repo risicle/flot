@@ -412,12 +412,13 @@ The plugin allso adds the following methods to the plot object:
                 ctx.save();
                 ctx.translate(plotOffset.left, plotOffset.top);
 
-                var c = $.color.parse(o.draggableselection.color);
+                var color = $.color.parse(o.draggableselection.color);
+                var fillColor = o.draggableselection.fillColor ? $.color.parse(o.draggableselection.fillColor) : $.color.parse(o.draggableselection.color).scale ( "a" , 0.5 );
 
-                ctx.strokeStyle = c.scale('a', 0.8).toString();
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = color.toString();
+                ctx.lineWidth = o.draggableselection.edgeLineWidth;
                 ctx.lineCap = "round";
-                ctx.fillStyle = c.scale('a', 0.4).toString();
+                ctx.fillStyle = fillColor.toString();
 
                 var x = Math.min(selection.first.x, selection.second.x),
                     y = Math.min(selection.first.y, selection.second.y),
@@ -474,8 +475,10 @@ The plugin allso adds the following methods to the plot object:
         options: {
             draggableselection: {
                 mode: null, // one of null, "x", "y" or "xy"
-                color: "#e8cfac",
+                color: "rgba(232,207,172,0.8)",
+                fillColor: null,
                 edgetolerance: 4 ,
+                edgeLineWidth: 1 ,
                 invertFill: false
             }
         },
