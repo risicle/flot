@@ -79,24 +79,43 @@ Flot plugin for showing bar-style highlights for stepped line series
 
             var left = Math.min(point0[0],point1[0]);
             var right = Math.max(point0[0],point1[0]);
-            var bottom = Math.min(point0[1],0.0);
-            var top = Math.max(point0[1],0.0);
+            var bottom, top;
 
-            if ( left > series.xaxis.max || right < series.xaxis.min || top < series.yaxis.min || bottom > series.yaxis.max )
-                // rect is not in the viewport
-                return null;
+            if ( series.lines.stepsInteraction === "bar" ) {
+                bottom = Math.min(point0[1],0.0);
+                top = Math.max(point0[1],0.0);
 
-            left = Math.max(left,series.xaxis.min);
-            right = Math.min(right,series.xaxis.max);
-            bottom = Math.min(bottom,series.yaxis.max);
-            top = Math.max(top,series.yaxis.min);
+                if ( left > series.xaxis.max || right < series.xaxis.min || top < series.yaxis.min || bottom > series.yaxis.max )
+                    // rect is not in the viewport
+                    return null;
 
-            r = {
-                x: series.xaxis.p2c(left),
-                y: series.yaxis.p2c(top)
-            };
-            r.w = series.xaxis.p2c(right) - r.x;
-            r.h = series.yaxis.p2c(bottom) - r.y;
+                left = Math.max(left,series.xaxis.min);
+                right = Math.min(right,series.xaxis.max);
+                bottom = Math.min(bottom,series.yaxis.max);
+                top = Math.max(top,series.yaxis.min);
+
+                r = {
+                    x: series.xaxis.p2c(left),
+                    y: series.yaxis.p2c(top)
+                };
+                r.w = series.xaxis.p2c(right) - r.x;
+                r.h = series.yaxis.p2c(bottom) - r.y;
+            }
+            else if ( series.lines.stepsInteraction === "line" ) {
+                if ( left > series.xaxis.max || right < series.xaxis.min || point0[1] < series.yaxis.min || point0[1] > series.yaxis.max )
+                    // not in the viewport
+                    return null;
+
+                left = Math.max(left,series.xaxis.min);
+                right = Math.min(right,series.xaxis.max);
+
+                r = {
+                    x: series.xaxis.p2c(left) - 1,
+                    y: series.yaxis.p2c(point0[1]) - (1 + series.lines.lineWidth/2)
+                };
+                r.w = series.xaxis.p2c(right) + 2 - r.x;
+                r.h = series.lines.lineWidth + 2;
+            }
 
             return r;
         };
