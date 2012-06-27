@@ -98,7 +98,8 @@ The plugin allso adds the following methods to the plot object:
 
             var pickup = $.extend ( {} , dragging_nothing );
 
-            if ( o.draggableselection.mode == "x" )
+            if ( o.draggableselection.mode == "x"
+                && offset_start_y >= 0 && offset_start_y <= plot.height() ) // ensure pointer in plot area y extent
             {
                 if ( on_first_x )
                     pickup.first_x = true;
@@ -107,7 +108,8 @@ The plugin allso adds the following methods to the plot object:
                 else if ( between_first_second_x )
                     pickup.first_x = pickup.second_x = true;
             }
-            else if ( o.draggableselection.mode == "y" )
+            else if ( o.draggableselection.mode == "y"
+                && offset_start_x >= 0 && offset_start_x <= plot.width() ) // ensure pointer in plot area x extent
             {
                 if ( on_first_y )
                     pickup.first_y = true;
