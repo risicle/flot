@@ -294,12 +294,8 @@ for details.
                         }
                         else if (t < timeUnitSize.month)
                             fmt = "%b %d";
-                        else if (t < timeUnitSize.quarter) {
-                            if (span < timeUnitSize.year)
-                                fmt = "%b";
-                            else
-                                fmt = "%b %Y";
-                        }
+                        else if (t < timeUnitSize.quarter)
+                            fmt = "%b %Y";
                         else if (t < timeUnitSize.year)
                             fmt = "%q %Y";
                         else
