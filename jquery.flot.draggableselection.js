@@ -156,6 +156,8 @@ The plugin allso adds the following methods to the plot object:
 
             selection.dragging = pickup;
 
+            plot.getPlaceholder().trigger ( "plotselectstart", [ getSelection () , $.extend ( {} , selection.dragging ) , dragdrop ] );
+
             // TODO force cursor of <body> element during drag?
         }
 
@@ -265,12 +267,16 @@ The plugin allso adds the following methods to the plot object:
                     selection.second.y = plot.height () - 1;
             }
 
-            plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () ] );
+            plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () , $.extend ( {} , selection.dragging ) ] );
 
             plot.triggerRedrawOverlay ();
         }
 
         function onDragEnd ( event , dragdrop ) {
+            // ensure selection is up to date
+            onDrag ( event , dragdrop );
+            plot.getPlaceholder().trigger ( "plotselectend", [ getSelection () , $.extend ( {} , selection.dragging ) , dragdrop ] );
+
             selection.dragging = $.extend ( {} , dragging_nothing );
         }
 
@@ -367,7 +373,7 @@ The plugin allso adds the following methods to the plot object:
 
             plot.triggerRedrawOverlay();
             if ( ! preventEvent )
-                plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () ] );
+                plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () , $.extend ( {} , selection.dragging ) ] );
         }
 
         function setInitialSelection () {
