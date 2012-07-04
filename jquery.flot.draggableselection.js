@@ -79,6 +79,11 @@ The plugin allso adds the following methods to the plot object:
             second_y : false
         };
 
+        // these are used to calculate how we should recalculate selection
+        // after a resize
+        var last_plot_width = plot.width ();
+        var last_plot_height = plot.height ();
+
         function determineMouseOver ( pageX , pageY ) {
             var o = plot.getOptions();
             var placeholder_offset = plot.getPlaceholder ().offset ();
@@ -155,6 +160,8 @@ The plugin allso adds the following methods to the plot object:
                 pickup.second_y = selection.second.y;
 
             selection.dragging = pickup;
+
+            plot.getPlaceholder().trigger ( "plotselectstart", [ getSelection () , $.extend ( {} , selection.dragging ) , dragdrop ] );
 
             // TODO force cursor of <body> element during drag?
         }
@@ -265,13 +272,32 @@ The plugin allso adds the following methods to the plot object:
                     selection.second.y = plot.height () - 1;
             }
 
-            plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () ] );
+            plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () , $.extend ( {} , selection.dragging ) ] );
 
             plot.triggerRedrawOverlay ();
         }
 
         function onDragEnd ( event , dragdrop ) {
+            // ensure selection is up to date
+            onDrag ( event , dragdrop );
+            plot.getPlaceholder().trigger ( "plotselectend", [ getSelection () , $.extend ( {} , selection.dragging ) , dragdrop ] );
+
             selection.dragging = $.extend ( {} , dragging_nothing );
+        }
+
+        function onResize ( event ) {
+            var new_width = plot.width ();
+            var new_height = plot.height ();
+            if ( last_plot_width ) {
+                selection.first.x = selection.first.x * new_width / last_plot_width;
+                selection.second.x = selection.second.x * new_width / last_plot_width;
+            }
+            if ( last_plot_height ) {
+                selection.first.y = selection.first.y * new_height / last_plot_height;
+                selection.second.y = selection.second.y * new_height / last_plot_height;
+            }
+            last_plot_width = new_width;
+            last_plot_height = new_height;
         }
 
         function getSelection() {
@@ -367,7 +393,7 @@ The plugin allso adds the following methods to the plot object:
 
             plot.triggerRedrawOverlay();
             if ( ! preventEvent )
-                plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () ] );
+                plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () , $.extend ( {} , selection.dragging ) ] );
         }
 
         function setInitialSelection () {
@@ -399,7 +425,7 @@ The plugin allso adds the following methods to the plot object:
 
         // just need to do this somewhere where the canvas has been set up so we
         // can use plot.width () & plot.height ()
-        plot.hooks.drawBackground.push( setInitialSelection );
+        plot.hooks.drawBackground.push( function () { if ( selection == null ) setInitialSelection () } );
 
         plot.hooks.bindEvents.push(function(plot, eventHolder) {
             var o = plot.getOptions();
@@ -408,6 +434,7 @@ The plugin allso adds the following methods to the plot object:
                 eventHolder.on ( "dragstart" , onDragStart );
                 eventHolder.on ( "drag" , onDrag );
                 eventHolder.on ( "dragend" , onDragEnd );
+                plot.getPlaceholder().on ( "resize" , onResize );
 
                 // hopefully this should get deferred until our drawOverlay function is actually added
                 plot.triggerRedrawOverlay ();
@@ -508,6 +535,7 @@ The plugin allso adds the following methods to the plot object:
             eventHolder.off ( "dragstart" , onDragStart );
             eventHolder.off ( "drag" , onDrag );
             eventHolder.off ( "dragend" , onDragEnd );
+            plot.getPlaceholder().on ( "resize" , onResize );
         });
 
     }
