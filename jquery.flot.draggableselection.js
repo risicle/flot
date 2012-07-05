@@ -312,7 +312,7 @@ The plugin allso adds the following methods to the plot object:
         }
 
         function clearSelection(preventEvent) {
-            setInitialSelection ();
+            setAllSelection ();
             plot.triggerRedrawOverlay();
         }
 
@@ -347,8 +347,8 @@ The plugin allso adds the following methods to the plot object:
 
             return { from: from, to: to, axis: axis };
         }
-        
-        function setSelection(ranges, preventEvent) {
+
+        function setSelectionInner(ranges) {
             var axis, o = plot.getOptions(),
                 x_range = extractRange(ranges, "x"),
                 y_range = extractRange(ranges, "y"),
@@ -371,7 +371,7 @@ The plugin allso adds the following methods to the plot object:
 
             if (!(desired_change_x || desired_change_y))
                 // there's nothing to change
-                return;
+                return false;
 
             if (o.draggableselection.mode == "y") {
                 selection.first.x = 0;
@@ -391,6 +391,15 @@ The plugin allso adds the following methods to the plot object:
                 selection.second.y = desired_max_y;
             }
 
+            // there was a change that should be signalled
+            return true;
+        }
+
+        function setSelection(ranges, preventEvent) {
+            if ( ! setSelectionInner(ranges) )
+                // nothing changed
+                return;
+
             plot.triggerRedrawOverlay();
             if ( ! preventEvent )
                 plot.getPlaceholder().trigger ( "plotselecting", [ getSelection () , $.extend ( {} , selection.dragging ) ] );
@@ -399,14 +408,20 @@ The plugin allso adds the following methods to the plot object:
         function setInitialSelection () {
             var o = plot.getOptions();
             if (o.draggableselection.mode != null) {
-                selection = {
-                    // unlike the selection plugin, first coordinates must always be <= second coordinates
-                    first: { x: 0, y: 0}, second: { x: plot.width () - 1, y: plot.height () - 1 } ,
-                    // dragging: an object holding either the starting cursor offset for each of (first|second)_(x|y) or false if
-                    // the coordinate is not being dragged
-                    dragging: $.extend ( {} , dragging_nothing )
-                };
+                setAllSelection ();
+                if (o.draggableselection.initialSelection != null)
+                    setSelectionInner ( o.draggableselection.initialSelection );
             }
+        }
+
+        function setAllSelection () {
+            selection = {
+                // unlike the selection plugin, first coordinates must always be <= second coordinates
+                first: { x: 0, y: 0}, second: { x: plot.width () - 1, y: plot.height () - 1 } ,
+                // dragging: an object holding either the starting cursor offset for each of (first|second)_(x|y) or false if
+                // the coordinate is not being dragged
+                dragging: $.extend ( {} , dragging_nothing )
+            };
         }
 
         function emitEdgeHandle ( ctx ) {
@@ -550,6 +565,7 @@ The plugin allso adds the following methods to the plot object:
                 edgetolerance: 4 ,
                 edgeHandleSize: 6 ,
                 edgeLineWidth: 1 ,
+                initialSelection: null , // or a ranges object e.g. as returned by getSelection()
                 invertFill: false
             }
         },
