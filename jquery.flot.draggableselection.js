@@ -81,8 +81,7 @@ The plugin allso adds the following methods to the plot object:
 
         // these are used to calculate how we should recalculate selection
         // after a resize
-        var last_plot_width = plot.width ();
-        var last_plot_height = plot.height ();
+        var last_plot_width, last_plot_height;
 
         function determineMouseOver ( pageX , pageY ) {
             var o = plot.getOptions();
@@ -439,8 +438,19 @@ The plugin allso adds the following methods to the plot object:
         plot.getSelection = getSelection;
 
         // just need to do this somewhere where the canvas has been set up so we
-        // can use plot.width () & plot.height ()
-        plot.hooks.drawBackground.push( function () { if ( selection == null ) setInitialSelection () } );
+        // can use plot.width () & plot.height (). Unfortunately this also gets
+        // called on redraws, so we have to check this is actually the first time
+        // this is being called.
+        plot.hooks.drawBackground.push( function () {
+            // initialize these
+            if ( last_plot_width == null )
+                last_plot_width = plot.width ();
+            if ( last_plot_height == null )
+                last_plot_height = plot.height ();
+
+            if ( selection == null )
+                setInitialSelection ();
+        } );
 
         plot.hooks.bindEvents.push(function(plot, eventHolder) {
             var o = plot.getOptions();
