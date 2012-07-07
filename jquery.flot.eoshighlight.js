@@ -5,7 +5,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 (function ($) {
     var options = {
         series: {
-            eoshighlight: false // whether line's points exhibit eoshighlight behaviour
+            eoshighlight: false // or "active" or "passive" - whether line's points exhibit eoshighlight behaviour
         }
     };
 
@@ -192,7 +192,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             var s;
             for (var i = 0; i < series.length; i++) {
                 s = series[i];
-                if (s.eoshighlight) {
+                // only need to add event handlers if "active"
+                if (s.eoshighlight === "active") {
                     enabled = true;
                     break;
                 }
@@ -236,13 +237,15 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                     ctx.beginPath();
                         ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
-                        ctx.lineTo(x, plot.height());
+                        if ( eosselectedseries.eoshighlight === "active" )
+                        	ctx.lineTo(x, plot.height());
                     ctx.closePath();
 
                     ctx.stroke();
                 }
 
-                if (ca_bbox != null) {
+                // draw context arrow
+                if (eosselectedseries.eoshighlight === "active" && ca_bbox != null) {
                     ctx.fillStyle = $.color.parse(eosselectedseries.color).toString();
                     ctx.beginPath();
                         ctx.moveTo(ca_bbox.x0, ca_bbox.y1);
@@ -275,12 +278,14 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                     ctx.fill();
 
-                    ctx.beginPath();
-                        ctx.moveTo(x, y);
-                        ctx.lineTo(x, plot.height());
-                    ctx.closePath();
+                    if ( eoshoveredseries.eoshighlight === "active" ) {
+                        ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x, plot.height());
+                        ctx.closePath();
 
-                    ctx.stroke();
+                        ctx.stroke();
+                    }
                 }
             }
 
