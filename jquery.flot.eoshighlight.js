@@ -140,8 +140,13 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         }
 
         plot.eosSelect = function (s, pointindex_from, pointindex_to) {
+            var series = plot.getData ();
             if (typeof s == "number")
                 s = series[s];
+
+            if (s && !s.eoshighlight)
+                // eoshighlight isn't supposed to be enabled for this series
+                return;
 
             if (eosselectedseries === s &&
                 pointindex_from == eosselectedindexes[0] &&
@@ -157,13 +162,18 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                     eosselectedindexes.push(pointindex_from);
                 }
             }
-            placeholder.trigger ( "ploteosselected" , [ eosselectedseries , eosselectedindexes ] );
+            placeholder.trigger ( "ploteosselected" , [ eosselectedseries == null ? null : $.inArray ( eosselectedseries , series ) , eosselectedindexes ] );
             plot.triggerRedrawOverlay();
         }
 
         plot.eosHover = function (s, pointindex) {
+            var series = plot.getData ();
             if (typeof s == "number")
                 s = series[s];
+
+            if (s && !s.eoshighlight)
+                // eoshighlight isn't supposed to be enabled for this series
+                return;
 
             if (eoshoveredseries === s && pointindex == eoshoveredindex)
                 // nothing to do
@@ -172,7 +182,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             eoshoveredindex = pointindex;
             eoshoveredseries = s;
 
-            placeholder.trigger ( "ploteoshovered" , [ eosselectedseries , eoshoveredindex ] );
+            placeholder.trigger ( "ploteoshovered" , [ eoshoveredseries == null ? null : $.inArray ( eoshoveredseries , series ) , eoshoveredindex ] );
             plot.triggerRedrawOverlay();
         }
 
