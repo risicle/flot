@@ -5,13 +5,20 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 (function ($) {
     var options = {
         series: {
-            eoshighlight: false // or "active" or "passive" - whether line's points exhibit eoshighlight behaviour
+            eoshighlight: false , // or "active" or "passive" - whether line's points exhibit eoshighlight behaviour
+            eoshighlightRangeFillColor: "rgba(0,0,0,0.2)"
         }
     };
 
     function init(plot) {
         var eosselectedseries;
         var eosselectedindexes = [];
+        // the "pending" point is the one that a drag is starting from. visually it overrides
+        // the selected one, but the selected one should remain the one actually selected until
+        // the dragging has finished.
+        var eospendingseries;
+        var eospendingindex;
+        var eospendingxpos;
         var eoshoveredseries;
         var eoshoveredindex;
         var placeholder = plot.getPlaceholder ();
@@ -91,6 +98,81 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             }
         }
 
+        function onDragStart(event, dragdrop) {
+            var offset = plot.getPlotOffset(),
+                placeholder = plot.getPlaceholder(),
+                placeholder_offset = placeholder.offset ();
+
+            var offset_start_x = dragdrop.startX - ( offset.left + placeholder_offset.left );
+            var offset_start_y = dragdrop.startY - ( offset.top + placeholder_offset.top );
+
+            // lets see if the drag started on a point
+            var item = plot.findNearbyItem (offset_start_x, offset_start_y, function ( series ) { return series["clickable"] !== false });
+            if (item == null)
+                return false;
+
+            eospendingseries = item.series;
+            eospendingindex = item.dataIndex;
+            eospendingxpos = eospendingseries.xaxis.c2p ( offset_start_x + dragdrop.deltaX );
+
+            plot.triggerRedrawOverlay();
+        }
+
+        function onDrag(event, dragdrop) {
+            if (!eospendingseries)
+                return;
+
+            var offset = plot.getPlotOffset(),
+                placeholder = plot.getPlaceholder(),
+                placeholder_offset = placeholder.offset ();
+
+            var offset_start_x = dragdrop.startX - ( offset.left + placeholder_offset.left );
+
+            // just update this really
+            eospendingxpos = eospendingseries.xaxis.c2p ( offset_start_x + dragdrop.deltaX );
+
+            plot.triggerRedrawOverlay();
+        }
+
+        function onDragEnd(event, dragdrop) {
+            if (eospendingindex == null)
+                return;
+
+            var offset = plot.getPlotOffset(),
+                placeholder = plot.getPlaceholder(),
+                placeholder_offset = placeholder.offset (),
+                i, xval;
+
+            // first let's check if we're over another point
+            var offset_x = dragdrop.startX + dragdrop.deltaX - ( offset.left + placeholder_offset.left );
+            var offset_y = dragdrop.startY + dragdrop.deltaY - ( offset.top + placeholder_offset.top );
+            var item = plot.findNearbyItem (offset_x, offset_y, function ( series ) { return series === eospendingseries });
+            if (item != null) {
+                // yup. let's use that.
+                plot.eosSelect ( eospendingseries , Math.min(eospendingindex,item.dataIndex) , Math.max(eospendingindex,item.dataIndex) );
+            }
+            else {
+                // nope. will try to find nearest in x direction. assuming monotonic
+                // x values here of course
+                xval = eospendingseries.xaxis.c2p(offset_x);
+                for ( i = 0 ; i < eospendingseries.data.length ; i++ ) {
+                    if ( eospendingseries.datapoints.points[i*eospendingseries.datapoints.pointsize] > xval )
+                        break;
+                }
+                // non-"backwards" selections should actually catch the point _before_ we went past the x value
+                if (dragdrop.deltaX > 0)
+                    i--;
+                plot.eosSelect ( eospendingseries , Math.min(eospendingindex,i) , Math.max(eospendingindex,i) );
+            }
+
+            // now clear these
+            eospendingseries = null;
+            eospendingindex = null;
+            eospendingxpos = null;
+
+            plot.triggerRedrawOverlay();
+        }
+
         function getContextArrowBBox () {
             if (!eosselectedindexes.length)
                 // there ain't one
@@ -154,12 +236,16 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 // nothing to do
                 return;
 
+            if (pointindex_from === pointindex_to)
+                // this isn't how we notate this
+                pointindex_to = null;
+
             eosselectedseries = s;
             eosselectedindexes = [];
             if (pointindex_from != null) {
                 eosselectedindexes.push(pointindex_from);
                 if (pointindex_to != null) {
-                    eosselectedindexes.push(pointindex_from);
+                    eosselectedindexes.push(pointindex_to);
                 }
             }
             placeholder.trigger ( "ploteosselected" , [ eosselectedseries == null ? null : $.inArray ( eosselectedseries , series ) , eosselectedindexes ] );
@@ -204,22 +290,49 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             placeholder.on("plothover", onPlotHover);
             placeholder.on("plotclick", onPlotClick);
             eventHolder.on("contextmenu", onContextMenu);
+
+            eventHolder.on("dragstart", { distance: 4 , click: false }, onDragStart);
+            eventHolder.on("drag", { distance: 4 , click: false }, onDrag);
+            eventHolder.on("dragend", { distance: 4 , click: false }, onDragEnd);
         });
 
         plot.hooks.drawOverlay.push(function (plot, ctx) {
-            if (eoshoveredindex == null && !eosselectedindexes.length)
+            if (eoshoveredindex == null && eospendingindex == null && !eosselectedindexes.length)
                 // nothing to draw
                 return;
 
             var plotOffset = plot.getPlotOffset();
             var point, point_x, point_y, xaxis, yaxis, radius;
-            var x, y;
+            var x, y, xa, xb;
             var ca_bbox = getContextArrowBBox ();
 
             ctx.save();
             ctx.translate(plotOffset.left, plotOffset.top);
 
-            if (eosselectedindexes.length) {
+            if (eospendingindex != null) {
+                x0 = eospendingseries.xaxis.p2c(eospendingseries.datapoints.points[eospendingindex*eospendingseries.datapoints.pointsize]);
+                x1 = eospendingseries.xaxis.p2c(eospendingxpos);
+                ctx.fillStyle = eospendingseries.eoshighlightRangeFillColor;
+
+                ctx.fillRect ( Math.min(x0,x1) , 0 , Math.abs(x0 - x1) , plot.height () );
+
+                radius = eospendingseries.points.radius;
+                ctx.lineWidth = eospendingseries.points.lineWidth;
+                ctx.strokeStyle = $.color.parse(eospendingseries.color).toString();
+
+                point = eospendingseries.datapoints.points.slice(eospendingindex * eospendingseries.datapoints.pointsize, (eospendingindex+1) * eospendingseries.datapoints.pointsize);
+                x = eospendingseries.xaxis.p2c(point[0]);
+                y = eospendingseries.yaxis.p2c(point[1]);
+
+                ctx.beginPath();
+                    ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
+                    if ( eospendingseries.eoshighlight === "active" )
+                        ctx.lineTo(x, plot.height());
+                ctx.closePath();
+
+                ctx.stroke();
+            }
+            else if (eosselectedindexes.length) {
                 radius = eosselectedseries.points.radius;
                 ctx.lineWidth = eosselectedseries.points.lineWidth;
                 ctx.strokeStyle = $.color.parse(eosselectedseries.color).toString();
@@ -296,6 +409,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             placeholder.off("plothover", onPlotHover);
             placeholder.off("plotclick", onPlotClick);
             eventHolder.off("contextmenu", onContextMenu);
+
+            eventHolder.off("dragstart", onDragStart);
+            eventHolder.off("drag", onDrag);
+            eventHolder.off("dragend", onDragEnd);
         });
     }
     
