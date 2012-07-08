@@ -303,7 +303,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
             var plotOffset = plot.getPlotOffset();
             var point, point_x, point_y, xaxis, yaxis, radius;
-            var x, y, xa, xb;
+            var x, y, xa, xb, i;
             var ca_bbox = getContextArrowBBox ();
 
             ctx.save();
@@ -333,6 +333,31 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 ctx.stroke();
             }
             else if (eosselectedindexes.length) {
+                xaxis = eosselectedseries.xaxis;
+                yaxis = eosselectedseries.yaxis;
+
+                if (eosselectedindexes.length > 1) {
+                    // draw filled area of selected range
+                    ctx.save();
+                        // use of clip() isn't compatible with excanvas, but i doubt what im doing
+                        // elsewhere works in old IEs at all.
+                        if ($.isFunction(ctx.clip)) {
+                            ctx.beginPath();
+                                ctx.rect(0, 0, plot.width(), plot.height());
+                            ctx.clip();
+                        }
+
+                        ctx.fillStyle = eosselectedseries.eoshighlightRangeFillColor;
+                        ctx.beginPath ();
+                            ctx.moveTo( xaxis.p2c(eosselectedseries.datapoints.points[eosselectedindexes[0]*eosselectedseries.datapoints.pointsize]) , plot.height () );
+                            for (i = eosselectedindexes[0]; i <= eosselectedindexes[1]; i++)
+                                // note shift down by half line width in naive attempt to not overlap the line too much.
+                                ctx.lineTo( xaxis.p2c(eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize]) , yaxis.p2c(eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1]) + eosselectedseries.lines.lineWidth*0.5 );
+                            ctx.lineTo( xaxis.p2c(eosselectedseries.datapoints.points[eosselectedindexes[1]*eosselectedseries.datapoints.pointsize]) , plot.height () );
+                        ctx.fill();
+                    ctx.restore();
+                }
+
                 radius = eosselectedseries.points.radius;
                 ctx.lineWidth = eosselectedseries.points.lineWidth;
                 ctx.strokeStyle = $.color.parse(eosselectedseries.color).toString();
@@ -340,7 +365,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 xaxis = eosselectedseries.xaxis;
                 yaxis = eosselectedseries.yaxis;
 
-                for (var i = 0; i < eosselectedindexes.length; i++) {
+                // draw eyes on sticks
+                for (i = 0; i < eosselectedindexes.length; i++) {
                     point = eosselectedseries.datapoints.points.slice(eosselectedindexes[i] * eosselectedseries.datapoints.pointsize, (eosselectedindexes[i]+1) * eosselectedseries.datapoints.pointsize);
                     if ( point[0] < xaxis.min || point[0] > xaxis.max || point[1] < yaxis.min || point[1] > yaxis.max )
                         continue;
