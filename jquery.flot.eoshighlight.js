@@ -42,7 +42,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             }
             else {
                 plot.eosHover (item.series, item.dataIndex);
-                if (item.series === eosselectedseries && $.inArray(item.dataIndex, eosselectedindexes) !== -1)
+                if (item.series === eosselectedseries && eosselectedindexes.length === 1 && item.dataIndex === eosselectedindexes[0])
                     placeholder.css("cursor", "pointer");
                 else
                     placeholder.css("cursor", "default");
@@ -66,7 +66,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 plot.eosSelect ();
             }
             else {
-                if (item.series === eosselectedseries && $.inArray(item.dataIndex, eosselectedindexes) !== -1) {
+                if (item.series === eosselectedseries && eosselectedindexes.length === 1 && item.dataIndex === eosselectedindexes[0]) {
                     // open a context menu
                     return false;
                 }
