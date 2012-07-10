@@ -23,6 +23,33 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         var eoshoveredindex;
         var placeholder = plot.getPlaceholder ();
 
+        function checkInSelectionArea ( x_c , y_c ) {
+            if ( eosselectedindexes.length <= 1 )
+                return false;
+
+            var i, x_p = eosselectedseries.xaxis.c2p(x_c);
+
+            if (x_p < eosselectedseries.datapoints.points[eosselectedindexes[0]*eosselectedseries.datapoints.pointsize] ||
+                x_p >= eosselectedseries.datapoints.points[eosselectedindexes[1]*eosselectedseries.datapoints.pointsize] )
+                // not in x range of selection
+                return false;
+
+            for (i = eosselectedindexes[0]; x_p > eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize]; i++) {
+                // just keep iterating till we're just past x_p
+            }
+
+            // a and b are the points to the left & right of the cursor respectively
+            var x_c_a = eosselectedseries.xaxis.p2c(eosselectedseries.datapoints.points[(i-1)*eosselectedseries.datapoints.pointsize]);
+            var x_c_b = eosselectedseries.xaxis.p2c(eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize]);
+            var y_c_a = eosselectedseries.yaxis.p2c(eosselectedseries.datapoints.points[((i-1)*eosselectedseries.datapoints.pointsize)+1]);
+            var y_c_b = eosselectedseries.yaxis.p2c(eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1]);
+
+            if ( y_c < (y_c_b*(x_c-x_c_a)/(x_c_b-x_c_a)) + (y_c_a*(x_c_b-x_c)/(x_c_b-x_c_a)) )
+                return false;
+
+            return true;
+        }
+
         function onPlotHover (event , pos, item) {
             var ca_bbox = getContextArrowBBox (),
                 offset = plot.getPlotOffset(),
@@ -36,16 +63,21 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 plot.eosHover ();
                 placeholder.css("cursor", "pointer");
             }
-            else if (item == null) {
-                plot.eosHover ();
-                placeholder.css("cursor", "default");
-            }
-            else {
+            else if (item != null) {
                 plot.eosHover (item.series, item.dataIndex);
                 if (item.series === eosselectedseries && eosselectedindexes.length === 1 && item.dataIndex === eosselectedindexes[0])
                     placeholder.css("cursor", "pointer");
                 else
                     placeholder.css("cursor", "default");
+            }
+            else {
+                if (checkInSelectionArea(offset_x, offset_y)) {
+                    placeholder.css("cursor", "pointer");
+                }
+                else {
+                    placeholder.css("cursor", "default");
+                }
+                plot.eosHover ();
             }
         }
 
@@ -62,16 +94,22 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 // open a context menu
                 return false;
             }
-            else if (item == null) {
-                plot.eosSelect ();
-            }
-            else {
+            else if (item != null) {
                 if (item.series === eosselectedseries && eosselectedindexes.length === 1 && item.dataIndex === eosselectedindexes[0]) {
                     // open a context menu
                     return false;
                 }
                 else {
                     plot.eosSelect (item.series, item.dataIndex);
+                }
+            }
+            else {
+                if (checkInSelectionArea(offset_x, offset_y)) {
+                    // open a context menu
+                    return false;
+                }
+                else {
+                    plot.eosSelect ();
                 }
             }
         }
