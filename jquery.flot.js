@@ -1779,7 +1779,6 @@
 
                         if (ps < 0 && i == segmentStart + ps) {
                             // done with the reverse sweep
-                            ctx.fill();
                             areaOpen = false;
                             ps = -ps;
                             ypos = 1;
@@ -1823,7 +1822,6 @@
 
                     if (!areaOpen) {
                         // open area
-                        ctx.beginPath();
                         ctx.moveTo(axisx.p2c(x1), axisy.p2c(bottom));
                         areaOpen = true;
                     }
@@ -1888,6 +1886,9 @@
                         ctx.lineTo(axisx.p2c(x2old), axisy.p2c(y2));
                     }
                 }
+
+                // do the actual fill
+                ctx.fill ();
             }
 
             ctx.save();
