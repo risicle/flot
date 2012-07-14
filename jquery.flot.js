@@ -1645,7 +1645,7 @@
                     var x1 = points[i - ps], y1 = points[i - ps + 1],
                         x2 = points[i], y2 = points[i + 1];
                     
-                    if (x1 == null || x2 == null)
+                    if (x1 == null || x2 == null || y1 == null || y2 == null)
                         continue;
 
                     // clip with ymin
@@ -2226,7 +2226,7 @@
                 if (s.lines.show || s.points.show) {
                     for (j = 0; j < points.length; j += ps) {
                         var x = points[j], y = points[j + 1];
-                        if (x == null)
+                        if (x == null || y == null)
                             continue;
                         
                         // For points and lines, the cursor must be within a
