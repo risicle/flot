@@ -6,7 +6,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
     var options = {
         series: {
             eoshighlight: false , // or "active" or "passive" - whether line's points exhibit eoshighlight behaviour
-            eoshighlightRangeFillColor: "rgba(0,0,0,0.2)"
+            eoshighlightRangeFillColor: "rgba(0,0,0,0.2)" ,
+            eoshighlightNullMarkingColor: "rgba(0,0,0,0.2)"
         }
     };
 
@@ -309,6 +310,48 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             placeholder.trigger ( "ploteoshovered" , [ eoshoveredseries == null ? null : $.inArray ( eoshoveredseries , series ) , eoshoveredindex ] );
             plot.triggerRedrawOverlay();
         }
+
+        plot.hooks.processRawData.push(function (plot, series, data, datapoints) {
+            if (!series.eoshighlight)
+                return;
+
+            datapoints.format = [
+                { x: true, number: true, required: true },
+                { y: true, number: true, required: false }
+            ];
+
+        });
+
+        plot.hooks.processDatapoints.push(function (plot, series, datapoints) {
+            if (!series.eoshighlight)
+                return;
+
+            // all we're really going to do here is add markings entries corresponding
+            // to blocks of nulls
+            var o = plot.getOptions();
+            var markings = o.grid.markings || [];
+            var i;
+            var last_non_null = -1;
+            for (i = 0; i < datapoints.points.length/datapoints.pointsize; i++) {
+                if (datapoints.points[i*datapoints.pointsize+1] != null) {
+                    if (last_non_null != i-1)
+                        markings.push({ xaxis: { from: datapoints.points[last_non_null*datapoints.pointsize] == null ? null : datapoints.points[last_non_null*datapoints.pointsize] + 0.5 , to: datapoints.points[i*datapoints.pointsize] == null ? null : datapoints.points[i*datapoints.pointsize] - 0.5 } , color: series.eoshighlightNullMarkingColor });
+                    last_non_null = i;
+                }
+            }
+            if (i != 0 && last_non_null != i-1)
+                markings.push({ xaxis: { from: datapoints.points[last_non_null*datapoints.pointsize] == null ? null : datapoints.points[last_non_null*datapoints.pointsize] + 0.5 , to: datapoints.points[(i-1)*datapoints.pointsize] == null ? null : datapoints.points[(i-1)*datapoints.pointsize] - 0.5 } , color: series.eoshighlightNullMarkingColor });
+
+            // make sure this is assigned
+            o.grid.markings = markings;
+        });
+
+        plot.hooks.drawSeries.push(function (plot, ctx, series) {
+            if (!series.eoshighlight)
+                return;
+
+            // draw some useful stuff
+        });
 
         plot.hooks.bindEvents.push(function (plot, eventHolder) {
             var enabled = false;
