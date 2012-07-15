@@ -42,8 +42,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             // a and b are the points to the left & right of the cursor respectively
             var x_c_a = eosselectedseries.xaxis.p2c(eosselectedseries.datapoints.points[(i-1)*eosselectedseries.datapoints.pointsize]);
             var x_c_b = eosselectedseries.xaxis.p2c(eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize]);
-            var y_c_a = eosselectedseries.yaxis.p2c(eosselectedseries.datapoints.points[((i-1)*eosselectedseries.datapoints.pointsize)+1]);
-            var y_c_b = eosselectedseries.yaxis.p2c(eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1]);
+            var y_p_a = eosselectedseries.datapoints.points[((i-1)*eosselectedseries.datapoints.pointsize)+1];
+            var y_p_b = eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1];
+            var y_c_a = y_p_a == null ? plot.height()/2 : eosselectedseries.yaxis.p2c(y_p_a);
+            var y_c_b = y_p_b == null ? plot.height()/2 : eosselectedseries.yaxis.p2c(y_p_b);
 
             if ( y_c < (y_c_b*(x_c-x_c_a)/(x_c_b-x_c_a)) + (y_c_a*(x_c_b-x_c)/(x_c_b-x_c_a)) )
                 return false;
@@ -597,9 +599,13 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                         ctx.fillStyle = eosselectedseries.eoshighlightRangeFillColor;
                         ctx.beginPath ();
                             ctx.moveTo( xaxis.p2c(eosselectedseries.datapoints.points[eosselectedindexes[0]*eosselectedseries.datapoints.pointsize]) , plot.height () );
-                            for (i = eosselectedindexes[0]; i <= eosselectedindexes[1]; i++)
+                            for (i = eosselectedindexes[0]; i <= eosselectedindexes[1]; i++) {
+                                x = eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize];
+                                y = eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1];
+
                                 // note shift down by half line width in naive attempt to not overlap the line too much.
-                                ctx.lineTo( xaxis.p2c(eosselectedseries.datapoints.points[i*eosselectedseries.datapoints.pointsize]) , yaxis.p2c(eosselectedseries.datapoints.points[(i*eosselectedseries.datapoints.pointsize)+1]) + eosselectedseries.lines.lineWidth*0.5 );
+                                ctx.lineTo( xaxis.p2c(x) , y == null ? plot.height() / 2 : yaxis.p2c(y) + eosselectedseries.lines.lineWidth*0.5 );
+                            }
                             ctx.lineTo( xaxis.p2c(eosselectedseries.datapoints.points[eosselectedindexes[1]*eosselectedseries.datapoints.pointsize]) , plot.height () );
                         ctx.fill();
                     ctx.restore();
