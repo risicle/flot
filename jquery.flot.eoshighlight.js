@@ -340,7 +340,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 }
             }
             if (i != 0 && last_non_null != i-1)
-                markings.push({ xaxis: { from: datapoints.points[last_non_null*datapoints.pointsize] == null ? null : datapoints.points[last_non_null*datapoints.pointsize] + 0.5 , to: datapoints.points[(i-1)*datapoints.pointsize] == null ? null : datapoints.points[(i-1)*datapoints.pointsize] - 0.5 } , color: series.eoshighlightNullMarkingColor });
+                // any trailing markings by now will have no right bound, thus null
+                markings.push({ xaxis: { from: datapoints.points[last_non_null*datapoints.pointsize] == null ? null : datapoints.points[last_non_null*datapoints.pointsize] + 0.5 , to: null } , color: series.eoshighlightNullMarkingColor });
 
             // make sure this is assigned
             o.grid.markings = markings;
@@ -349,17 +350,19 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         function emitNullBypassLine ( ctx , series , i , last_non_null ) {
             var x1 = series.datapoints.points[last_non_null*series.datapoints.pointsize];
             var x2 = series.datapoints.points[i*series.datapoints.pointsize];
+            var y1 = series.datapoints.points[(last_non_null*series.datapoints.pointsize)+1];
+            var y2 = series.datapoints.points[(i*series.datapoints.pointsize)+1];
 
-            if ( x1 == null || x2 == null )
-                // there is no right or left point to bypass to
+            if ( x1 == null || x2 == null || y1 == null || y2 == null )
+                // there is no right or left point to bypass to or it is null
                 return;
 
             if ( x2 < series.xaxis.min || x1 > series.xaxis.max)
                 // off plot area
                 return;
 
-            ctx.moveTo ( series.xaxis.p2c(x1) , series.yaxis.p2c(series.datapoints.points[(last_non_null*series.datapoints.pointsize)+1]) );
-            ctx.lineTo ( series.xaxis.p2c(x2) , series.yaxis.p2c(series.datapoints.points[(i*series.datapoints.pointsize)+1]) );
+            ctx.moveTo ( series.xaxis.p2c(x1) , series.yaxis.p2c(y1) );
+            ctx.lineTo ( series.xaxis.p2c(x2) , series.yaxis.p2c(y2) );
         }
 
         plot.hooks.drawSeries.push(function (plot, ctx, series) {
@@ -404,8 +407,6 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                         last_non_null = i;
                     }
                 }
-                if (i != 0 && last_non_null != i-1)
-                    emitNullBypassLine ( ctx , series , i-1 , last_non_null );
 
                 ctx.stroke ();
 
