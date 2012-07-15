@@ -346,11 +346,70 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             o.grid.markings = markings;
         });
 
+        function emitNullBypassLine ( ctx , series , i , last_non_null ) {
+            var x1 = series.datapoints.points[last_non_null*series.datapoints.pointsize];
+            var x2 = series.datapoints.points[i*series.datapoints.pointsize];
+
+            if ( x1 == null || x2 == null )
+                // there is no right or left point to bypass to
+                return;
+
+            if ( x2 < series.xaxis.min || x1 > series.xaxis.max)
+                // off plot area
+                return;
+
+            ctx.moveTo ( series.xaxis.p2c(x1) , series.yaxis.p2c(series.datapoints.points[(last_non_null*series.datapoints.pointsize)+1]) );
+            ctx.lineTo ( series.xaxis.p2c(x2) , series.yaxis.p2c(series.datapoints.points[(i*series.datapoints.pointsize)+1]) );
+        }
+
         plot.hooks.drawSeries.push(function (plot, ctx, series) {
             if (!series.eoshighlight)
                 return;
 
-            // draw some useful stuff
+            var i;
+            var last_non_null = -1;
+            var plotOffset = plot.getPlotOffset ();
+
+            //
+            // Draw lines bypassing blocks of nulls
+            //
+            ctx.save ();
+
+                ctx.translate ( plotOffset.left , plotOffset.top );
+
+                // unlike flot proper, I'm not really worried about IE8/excanvas users - I don't
+                // think half the things I'm going to do will work in IE8 anyway. So rather than
+                // doing complex line clipping stuff I'm just going to use a clipping path and be
+                // done with it.
+                ctx.beginPath ()
+                ctx.rect ( 0 , 0 , plot.width () , plot.height () );
+                ctx.clip ();
+
+                // grab desired painting settings
+                ctx.lineCap = "round";
+                ctx.lineWidth = series.lines.lineWidth;
+                ctx.strokeStyle = series.color;
+
+                if ($.isFunction(series.lines.setupDrawContext))
+                    series.lines.setupDrawContext(plot, series, ctx);
+
+                // we want this to be semitransparent
+                ctx.globalAlpha = 0.5;
+
+                ctx.beginPath ();
+                for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
+                    if (series.datapoints.points[i*series.datapoints.pointsize+1] != null) {
+                        if (last_non_null != i-1)
+                            emitNullBypassLine ( ctx , series , i , last_non_null );
+                        last_non_null = i;
+                    }
+                }
+                if (i != 0 && last_non_null != i-1)
+                    emitNullBypassLine ( ctx , series , i-1 , last_non_null );
+
+                ctx.stroke ();
+
+            ctx.restore ();
         });
 
         plot.hooks.bindEvents.push(function (plot, eventHolder) {
