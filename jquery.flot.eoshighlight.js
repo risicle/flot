@@ -613,7 +613,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                 radius = eosselectedseries.points.radius;
                 ctx.lineWidth = eosselectedseries.points.lineWidth;
-                ctx.strokeStyle = $.color.parse(eosselectedseries.color).toString();
+                ctx.strokeStyle = eosselectedseries.color;
 
                 xaxis = eosselectedseries.xaxis;
                 yaxis = eosselectedseries.yaxis;
@@ -653,8 +653,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             if (eoshoveredindex != null) {
                 radius = eoshoveredseries.points.radius;
                 ctx.lineWidth = eoshoveredseries.points.lineWidth;
-                ctx.strokeStyle = $.color.parse(eoshoveredseries.color).toString();
-                ctx.fillStyle = $.color.parse(eoshoveredseries.color).toString();
+                ctx.strokeStyle = eoshoveredseries.color;
+                ctx.fillStyle = eoshoveredseries.color;
 
                 xaxis = eoshoveredseries.xaxis;
                 yaxis = eoshoveredseries.yaxis;
