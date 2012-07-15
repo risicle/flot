@@ -51,6 +51,71 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             return true;
         }
 
+        // ripped and adapted from jquery.flot.js's findNearbyItem ()
+        function findNearbyNullItem ( mouseX , mouseY, seriesFilter ) {
+            var series = plot.getData (), options = plot.getOptions ();
+            var maxDistance = options.grid.mouseActiveRadius,
+                smallestDistance = maxDistance * maxDistance + 1,
+                item = null, foundPoint = false, i, j;
+
+            // little shortcut here - if mouse isn't in the band where the null
+            // points lie, don't even bother looking.
+            if (Math.abs(mouseY - (plot.height()/2)) > maxDistance)
+                return null;
+
+            for (i = series.length - 1; i >= 0; --i) {
+                var s = series[i],
+                    axisx = s.xaxis,
+                    axisy = s.yaxis,
+                    points = s.datapoints.points,
+                    ps = s.datapoints.pointsize,
+                    mx = axisx.c2p(mouseX), // precompute some stuff to make the loop faster
+                    my = axisy.c2p(mouseY),
+                    maxx = maxDistance / axisx.scale,
+                    maxy = maxDistance / axisy.scale;
+
+                if (!seriesFilter(s))
+                    continue
+
+                for (j = 0; j < points.length; j += ps) {
+                    var x = points[j], y = points[j + 1];
+                    if (y != null)
+                        continue;
+
+                    // For points and lines, the cursor must be within a
+                    // certain distance to the data point
+                    if (x - mx > maxx || x - mx < -maxx)
+                        continue;
+
+                    // We have to calculate distances in pixels, not in
+                    // data units, because the scales of the axes may be different
+                    var dx = Math.abs(axisx.p2c(x) - mouseX),
+                        dy = plot.height()/2 - mouseY,
+                        dist = dx * dx + dy * dy; // we save the sqrt
+
+                    // use <= to ensure last point takes precedence
+                    // (last generally means on top of)
+                    if (dist < smallestDistance) {
+                        smallestDistance = dist;
+                        item = [i, j / ps];
+                    }
+                }
+            }
+
+            if (item) {
+                i = item[0];
+                j = item[1];
+                ps = series[i].datapoints.pointsize;
+
+                return { datapoint: series[i].datapoints.points.slice(j * ps, (j + 1) * ps),
+                         dataIndex: j,
+                         series: series[i],
+                         seriesIndex: i };
+            }
+
+            return null;
+        }
+
         function onPlotHover (event , pos, item) {
             var ca_bbox = getContextArrowBBox (),
                 offset = plot.getPlotOffset(),
@@ -59,6 +124,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
             var offset_x = pos.pageX - ( offset.left + placeholder_offset.left );
             var offset_y = pos.pageY - ( offset.top + placeholder_offset.top );
+
+            if (item == null)
+                // check if we're over a null item
+                item = findNearbyNullItem ( offset_x , offset_y , function ( series ) { return series["eoshighlight"] && series["hoverable"] !== false } );
 
             if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
                 plot.eosHover ();
@@ -90,6 +159,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
             var offset_x = pos.pageX - ( offset.left + placeholder_offset.left );
             var offset_y = pos.pageY - ( offset.top + placeholder_offset.top );
+
+            if (item == null)
+                // check if we're over a null item
+                item = findNearbyNullItem ( offset_x , offset_y , function ( series ) { return series["eoshighlight"] && series["clickable"] !== false } );
 
             if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
                 // open a context menu
@@ -124,7 +197,9 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             var offset_x = event.pageX - ( offset.left + placeholder_offset.left );
             var offset_y = event.pageY - ( offset.top + placeholder_offset.top );
 
-            var item = plot.findNearbyItem (offset_x, offset_y, function ( series ) { return series["clickable"] !== false });
+            var sf = function ( series ) { return series["eoshighlight"] && series["clickable"] !== false };
+
+            var item = plot.findNearbyItem (offset_x, offset_y, sf) || findNearbyNullItem (offset_x, offset_y, sf);
 
             if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
                 // open a context menu
@@ -145,8 +220,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             var offset_start_x = dragdrop.startX - ( offset.left + placeholder_offset.left );
             var offset_start_y = dragdrop.startY - ( offset.top + placeholder_offset.top );
 
+            var sf = function ( series ) { return series["eoshighlight"] && series["clickable"] !== false };
+
             // lets see if the drag started on a point
-            var item = plot.findNearbyItem (offset_start_x, offset_start_y, function ( series ) { return series["clickable"] !== false });
+            var item = plot.findNearbyItem (offset_start_x, offset_start_y, sf) || findNearbyNullItem (offset_start_x, offset_start_y, sf);
             if (item == null)
                 return false;
 
@@ -185,7 +262,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             // first let's check if we're over another point
             var offset_x = dragdrop.startX + dragdrop.deltaX - ( offset.left + placeholder_offset.left );
             var offset_y = dragdrop.startY + dragdrop.deltaY - ( offset.top + placeholder_offset.top );
-            var item = plot.findNearbyItem (offset_x, offset_y, function ( series ) { return series === eospendingseries });
+
+            var sf = function ( series ) { return series === eospendingseries };
+
+            var item = plot.findNearbyItem (offset_x, offset_y, sf) || findNearbyNullItem (offset_x, offset_y, sf);
             if (item != null) {
                 // yup. let's use that.
                 plot.eosSelect ( eospendingseries , Math.min(eospendingindex,item.dataIndex) , Math.max(eospendingindex,item.dataIndex) );
@@ -236,7 +316,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             }
             else {
                 // point should still be the last (& only) point
-                y_coord = eosselectedseries.yaxis.p2c(point[1]);
+                y_coord = point[1] == null ? plot.height()/2 : eosselectedseries.yaxis.p2c(point[1]);
                 if (y_coord >= 3*outer_radius) {
                     // there's enough space to show an arrow normally
                     bbox.y0 = y_coord - 3*outer_radius;
@@ -369,7 +449,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             if (!series.eoshighlight)
                 return;
 
-            var i;
+            var i, x;
             var last_non_null = -1;
             var plotOffset = plot.getPlotOffset ();
 
@@ -410,6 +490,32 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                 ctx.stroke ();
 
+            ctx.restore ();
+
+            //
+            // Draw points in place of nulls
+            //
+            ctx.save ();
+
+                ctx.translate ( plotOffset.left , plotOffset.top );
+                ctx.fillStyle = series.color
+                ctx.globalAlpha = 0.5;
+
+                var nullpointsize = Math.min ( series.points.radius , Math.abs ( series.xaxis.p2c ( 0 ) - series.xaxis.p2c ( 1 ) ) ) * 0.8;
+                if (nullpointsize >= 1) { // (else don't bother)
+                    for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
+                        if (series.datapoints.points[i*series.datapoints.pointsize+1] == null) {
+                            if (series.datapoints.points[i*series.datapoints.pointsize] < series.min ||
+                                series.datapoints.points[i*series.datapoints.pointsize] > series.max)
+                                // off plot area
+                                continue;
+
+                            ctx.beginPath ();
+                                    ctx.arc(series.xaxis.p2c(series.datapoints.points[i*series.datapoints.pointsize]), ( plot.height () / 2 ), nullpointsize, 0, 2 * Math.PI, false);
+                            ctx.fill ();
+                        }
+                    }
+                }
             ctx.restore ();
         });
 
@@ -463,7 +569,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                 point = eospendingseries.datapoints.points.slice(eospendingindex * eospendingseries.datapoints.pointsize, (eospendingindex+1) * eospendingseries.datapoints.pointsize);
                 x = eospendingseries.xaxis.p2c(point[0]);
-                y = eospendingseries.yaxis.p2c(point[1]);
+                y = point[1] == null ? plot.height()/2 : eospendingseries.yaxis.p2c(point[1]);
 
                 ctx.beginPath();
                     ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
@@ -513,7 +619,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                         continue;
 
                     x = xaxis.p2c(point[0]);
-                    y = yaxis.p2c(point[1]);
+                    y = point[1] == null ? plot.height()/2 : yaxis.p2c(point[1]);
 
                     ctx.beginPath();
                         ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
@@ -550,7 +656,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 point = eoshoveredseries.datapoints.points.slice(eoshoveredindex * eoshoveredseries.datapoints.pointsize, (eoshoveredindex+1) * eoshoveredseries.datapoints.pointsize);
                 if ( !(point[0] < xaxis.min || point[0] > xaxis.max || point[1] < yaxis.min || point[1] > yaxis.max ) ) {
                     x = xaxis.p2c(point[0]);
-                    y = yaxis.p2c(point[1]);
+                    y = point[1] == null ? plot.height()/2 : yaxis.p2c(point[1]);
 
                     ctx.beginPath();
                         ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
