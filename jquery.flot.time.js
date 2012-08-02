@@ -137,7 +137,7 @@ for details.
 
     // the allowed tick sizes, after 1 year we use
     // an integer algorithm
-    var spec = [
+    var base_spec = [
         [1, "second"], [2, "second"], [5, "second"], [10, "second"],
         [30, "second"], 
         [1, "minute"], [2, "minute"], [5, "minute"], [10, "minute"],
@@ -146,9 +146,11 @@ for details.
         [8, "hour"], [12, "hour"],
         [1, "day"], [2, "day"], [3, "day"],
         [0.25, "month"], [0.5, "month"], [1, "month"],
-        [2, "month"], [1, "quarter"], [2, "quarter"],
-        [1, "year"]
+        [2, "month"]
     ];
+    // we don't know which variant(s) we'll need yet, but generating both is cheap
+    var spec_months = base_spec.concat ( [ [3, "month"], [6, "month"], [1, "year"] ] );
+    var spec_quarters = base_spec.concat ( [ [1, "quarter"], [2, "quarter"], [1, "year"] ] );
 
     function init(plot) {
         plot.hooks.processDatapoints.push(function (plot, series, datapoints) {
@@ -158,7 +160,10 @@ for details.
                     axis.tickGenerator = function(axis) {
                         var ticks = [],
                             d = dateGenerator(axis.min, opts),
-                            minSize = 0;
+                            minSize = 0,
+                            // make quarter use a possibility if quarters are mentioned in either of these options
+                            spec = (opts.tickSize && opts.tickSize[1] === "quarter") ||
+                                (opts.minTickSize && opts.minTickSize[1] === "quarter") ? spec_quarters : spec_months;
 
                         if (opts.minTickSize != null) {
                             if (typeof opts.tickSize == "number")
@@ -272,6 +277,11 @@ for details.
                     axis.tickFormatter = function (v, axis, tickSize) {
                         var d = dateGenerator(v, axis.options);
 
+                        // possibly use quarters if quarters are mentioned in any of these places
+                        var use_quarters = ( tickSize && tickSize[1] == "quarter" ) ||
+                            ( axis.options.tickSize && axis.options.tickSize[1] == "quarter" ) ||
+                            ( axis.options.minTickSize && axis.options.minTickSize[1] == "quarter" );
+
                         // allow tickSize argument to override tickSize used
                         tickSize = tickSize || axis.tickSize;
 
@@ -294,14 +304,19 @@ for details.
                         }
                         else if (t < timeUnitSize.month)
                             fmt = "%b %d";
-                        else if (t < timeUnitSize.quarter) {
+                        else if ( (use_quarters && t < timeUnitSize.quarter) ||
+                                (!use_quarters && t < timeUnitSize.year) ) {
                             if (span < timeUnitSize.year)
                                 fmt = "%b";
                             else
                                 fmt = "%b %Y";
                         }
-                        else if (t < timeUnitSize.year)
-                            fmt = "%q %Y";
+                        else if (use_quarters && t < timeUnitSize.year) {
+                            if (span < timeUnitSize.year)
+                                fmt = "%q";
+                            else
+                                fmt = "%q %Y";
+                        }
                         else
                             fmt = "%Y";
                         
