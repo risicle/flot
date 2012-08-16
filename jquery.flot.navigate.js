@@ -12,6 +12,7 @@ Options:
   zoom: {
     interactive: false
     trigger: "dblclick" // or "click" for single click
+    mousewheel: true, // whether mousewheel events should be caught for zooming
     amount: 1.5         // 2 = 200% (zoom in), 0.5 = 50% (zoom out)
   }
   
@@ -127,6 +128,7 @@ function(a){return a&&a.jquery?f.makeArray(a):a&&a.length?c.flatten(a):a})},text
         zoom: {
             interactive: false,
             trigger: "dblclick", // or "click" for single click
+            mousewheel: true, // whether mousewheel events should be caught for zooming
             amount: 1.5 // how much to zoom relative to current position, 2 = 200% (zoom in), 0.5 = 50% (zoom out)
         },
         pan: {
@@ -214,7 +216,8 @@ function(a){return a&&a.jquery?f.makeArray(a):a&&a.length?c.flatten(a):a})},text
             var o = plot.getOptions();
             if (o.zoom.interactive) {
                 eventHolder[o.zoom.trigger](onZoomClick);
-                eventHolder.mousewheel(onMouseWheel);
+                if (o.zoom.mousewheel)
+                    eventHolder.mousewheel(onMouseWheel);
             }
 
             if (o.pan.interactive) {
