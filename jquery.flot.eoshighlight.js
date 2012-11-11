@@ -21,7 +21,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         var eospendingindex;
         var eospendingxpos;
         var eoshoveredseries;
-        var eoshoveredindex;
+        var eoshoveredindexes = [];
         var placeholder = plot.getPlaceholder ();
 
         function checkInSelectionArea ( x_c , y_c ) {
@@ -373,7 +373,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             plot.triggerRedrawOverlay();
         }
 
-        plot.eosHover = function (s, pointindex) {
+        plot.eosHover = function (s, pointindex_from, pointindex_to) {
+            // multiple points allowed because external callers may have a line section that's being hovered over
             var series = plot.getData ();
             if (typeof s == "number")
                 s = series[s];
@@ -382,14 +383,22 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 // eoshighlight isn't supposed to be enabled for this series
                 return;
 
-            if (eoshoveredseries === s && pointindex == eoshoveredindex)
+            if (eosselectedseries === s &&
+                pointindex_from == eoshoveredindexes[0] &&
+                pointindex_to == eoshoveredindexes[1])
                 // nothing to do
                 return;
 
-            eoshoveredindex = pointindex;
             eoshoveredseries = s;
+            eoshoveredindexes = [];
+            if (pointindex_from != null) {
+                eoshoveredindexes.push(pointindex_from);
+                if (pointindex_to != null) {
+                    eoshoveredindexes.push(pointindex_to);
+                }
+            }
 
-            placeholder.trigger ( "ploteoshovered" , [ eoshoveredseries == null ? null : $.inArray ( eoshoveredseries , series ) , eoshoveredindex ] );
+            placeholder.trigger ( "ploteoshovered" , [ eoshoveredseries == null ? null : $.inArray ( eoshoveredseries , series ) , eoshoveredindexes ] );
             plot.triggerRedrawOverlay();
         }
 
@@ -546,7 +555,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         });
 
         plot.hooks.drawOverlay.push(function (plot, ctx) {
-            if (eoshoveredindex == null && eospendingindex == null && !eosselectedindexes.length)
+            if (!eoshoveredindexes.length && eospendingindex == null && !eosselectedindexes.length)
                 // nothing to draw
                 return;
 
@@ -650,7 +659,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 }
             }
 
-            if (eoshoveredindex != null) {
+            if (eoshoveredindexes.length) {
                 radius = eoshoveredseries.points.radius;
                 ctx.lineWidth = eoshoveredseries.points.lineWidth;
                 ctx.strokeStyle = eoshoveredseries.color;
@@ -659,24 +668,26 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 xaxis = eoshoveredseries.xaxis;
                 yaxis = eoshoveredseries.yaxis;
 
-                point = eoshoveredseries.datapoints.points.slice(eoshoveredindex * eoshoveredseries.datapoints.pointsize, (eoshoveredindex+1) * eoshoveredseries.datapoints.pointsize);
-                if ( !(point[0] < xaxis.min || point[0] > xaxis.max || point[1] < yaxis.min || point[1] > yaxis.max ) ) {
-                    x = xaxis.p2c(point[0]);
-                    y = point[1] == null ? plot.height()/2 : yaxis.p2c(point[1]);
+                for (i = 0; i < eoshoveredindexes.length; i++) {
+                    point = eoshoveredseries.datapoints.points.slice(eoshoveredindexes[i] * eoshoveredseries.datapoints.pointsize, (eoshoveredindexes[i]+1) * eoshoveredseries.datapoints.pointsize);
+                    if ( !(point[0] < xaxis.min || point[0] > xaxis.max || point[1] < yaxis.min || point[1] > yaxis.max ) ) {
+                        x = xaxis.p2c(point[0]);
+                        y = point[1] == null ? plot.height()/2 : yaxis.p2c(point[1]);
 
-                    ctx.beginPath();
-                        ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
-                    ctx.closePath();
-
-                    ctx.fill();
-
-                    if ( eoshoveredseries.eoshighlight === "active" ) {
                         ctx.beginPath();
-                            ctx.moveTo(x, y);
-                            ctx.lineTo(x, plot.height());
+                            ctx.arc(x, y, radius, 0.5 * Math.PI, 2.5 * Math.PI, false);
                         ctx.closePath();
 
-                        ctx.stroke();
+                        ctx.fill();
+
+                        if ( eoshoveredseries.eoshighlight === "active" ) {
+                            ctx.beginPath();
+                                ctx.moveTo(x, y);
+                                ctx.lineTo(x, plot.height());
+                            ctx.closePath();
+
+                            ctx.stroke();
+                        }
                     }
                 }
             }
