@@ -456,17 +456,33 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             ctx.lineTo ( series.xaxis.p2c(x2) , series.yaxis.p2c(y2) );
         }
 
+        function emitNullOvercrowdingLine ( ctx , series , first_null , last_null , y ) {
+            var x1 = series.datapoints.points[first_null*series.datapoints.pointsize];
+            var x2 = series.datapoints.points[last_null*series.datapoints.pointsize];
+
+            if ( x1 == null || x2 == null )
+                // there is no right or left point somehow
+                return;
+
+            if ( x2 < series.xaxis.min || x1 > series.xaxis.max)
+                // off plot area
+                return;
+
+            ctx.moveTo ( series.xaxis.p2c(x1) , y );
+            ctx.lineTo ( series.xaxis.p2c(x2) , y );
+        }
+
         plot.hooks.drawSeries.push(function (plot, ctx, series) {
             if (!series.eoshighlight)
                 return;
 
             var i, x;
             var last_non_null = -1;
+            var last_plotted_x = null;
             var plotOffset = plot.getPlotOffset ();
+            var nulls_overcrowded = Math.abs ( series.xaxis.p2c ( 0 ) - series.xaxis.p2c ( 1 ) ) < 2 * series.points.radius;
+            var mid_y = plot.height () / 2;
 
-            //
-            // Draw lines bypassing blocks of nulls
-            //
             ctx.save ();
 
                 ctx.translate ( plotOffset.left , plotOffset.top );
@@ -479,27 +495,61 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 ctx.rect ( 0 , 0 , plot.width () , plot.height () );
                 ctx.clip ();
 
-                // grab desired painting settings
-                ctx.lineCap = "round";
-                ctx.lineWidth = series.lines.lineWidth;
-                ctx.strokeStyle = series.color;
+                //
+                // Draw lines bypassing blocks of nulls
+                //
+                ctx.save ();
+                    // grab desired painting settings
+                    ctx.lineCap = "round";
+                    ctx.lineWidth = series.lines.lineWidth;
+                    ctx.strokeStyle = series.color;
 
-                if ($.isFunction(series.lines.setupDrawContext))
-                    series.lines.setupDrawContext(plot, series, ctx);
+                    if ($.isFunction(series.lines.setupDrawContext))
+                        series.lines.setupDrawContext(plot, series, ctx);
 
-                // we want this to be semitransparent
-                ctx.globalAlpha = 0.5;
+                    // we want this to be semitransparent
+                    ctx.globalAlpha = 0.5;
 
-                ctx.beginPath ();
-                for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
-                    if (series.datapoints.points[i*series.datapoints.pointsize+1] != null) {
-                        if (last_non_null != i-1)
-                            emitNullBypassLine ( ctx , series , i , last_non_null );
-                        last_non_null = i;
+                    ctx.beginPath ();
+                    for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
+                        if (series.datapoints.points[i*series.datapoints.pointsize+1] != null) {
+                            if (last_non_null != i-1)
+                                emitNullBypassLine ( ctx , series , i , last_non_null );
+                            last_non_null = i;
+                        }
                     }
-                }
 
-                ctx.stroke ();
+                    ctx.stroke ();
+                ctx.restore ();
+
+                //
+                // Draw lines indicating un-rendered null points
+                //
+                ctx.save ();
+                    last_non_null = -1;
+
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = series.color;
+                    ctx.lineWidth = series.points.radius*2;
+
+                    // we want this to be semi-semitransparent
+                    ctx.globalAlpha = 0.2;
+
+                    ctx.beginPath ();
+                    for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
+                        if (series.datapoints.points[i*series.datapoints.pointsize+1] != null) {
+                            if (nulls_overcrowded && last_non_null < i-3)
+                                emitNullOvercrowdingLine ( ctx , series , last_non_null+1 , i-1 , mid_y );
+                            last_non_null = i;
+                        }
+                    }
+
+                    // catch trailing null case
+                    if (nulls_overcrowded && last_non_null < i-3)
+                        emitNullOvercrowdingLine ( ctx , series , last_non_null+1 , i-1 , mid_y );
+
+                    ctx.stroke ();
+                ctx.restore ();
 
             ctx.restore ();
 
@@ -510,22 +560,28 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
                 ctx.translate ( plotOffset.left , plotOffset.top );
                 ctx.fillStyle = series.color
-                ctx.globalAlpha = 0.5;
+                ctx.globalAlpha = nulls_overcrowded ? 0.38 : 0.5;
 
-                var nullpointsize = Math.min ( series.points.radius , Math.abs ( series.xaxis.p2c ( 0 ) - series.xaxis.p2c ( 1 ) ) ) * 0.8;
-                if (nullpointsize >= 1) { // (else don't bother)
-                    for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
-                        if (series.datapoints.points[i*series.datapoints.pointsize+1] == null) {
-                            if (series.datapoints.points[i*series.datapoints.pointsize] < series.min ||
-                                series.datapoints.points[i*series.datapoints.pointsize] > series.max)
-                                // off plot area
-                                continue;
+                for (i = 0; i < series.datapoints.points.length/series.datapoints.pointsize; i++) {
+                    if (series.datapoints.points[i*series.datapoints.pointsize+1] == null) {
+                        if (series.datapoints.points[i*series.datapoints.pointsize] < series.min ||
+                            series.datapoints.points[i*series.datapoints.pointsize] > series.max)
+                            // off plot area
+                            continue;
 
-                            ctx.beginPath ();
-                                    ctx.arc(series.xaxis.p2c(series.datapoints.points[i*series.datapoints.pointsize]), ( plot.height () / 2 ), nullpointsize, 0, 2 * Math.PI, false);
-                            ctx.fill ();
-                        }
+                        x = series.xaxis.p2c(series.datapoints.points[i*series.datapoints.pointsize]);
+
+                        if ( last_plotted_x != null && Math.abs ( x - last_plotted_x ) < series.points.radius*2 )
+                            // last point was plotted too close
+                            continue;
+
+                        ctx.beginPath ();
+                                ctx.arc(series.xaxis.p2c(series.datapoints.points[i*series.datapoints.pointsize]), mid_y, series.points.radius, 0, 2 * Math.PI, false);
+                                last_plotted_x = x;
+                        ctx.fill ();
                     }
+                    else
+                        last_plotted_x = null;
                 }
             ctx.restore ();
         });
