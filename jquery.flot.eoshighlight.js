@@ -118,8 +118,15 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             return null;
         }
 
+        function requestContextMenu ()
+        {
+            var ca_pos = getContextArrowPos ();
+            if ( ca_pos != null )
+                placeholder.trigger ( "requestContextMenu" , [ { left : ca_pos.tip.x , top : ca_pos.tip.y } ] );
+        }
+
         function onPlotHover (event , pos, item) {
-            var ca_bbox = getContextArrowBBox (),
+            var ca_pos = getContextArrowPos (),
                 offset = plot.getPlotOffset(),
                 placeholder = plot.getPlaceholder(),
                 placeholder_offset = placeholder.offset ();
@@ -131,7 +138,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 // check if we're over a null item
                 item = findNearbyNullItem ( offset_x , offset_y , function ( series ) { return series["eoshighlight"] && series["hoverable"] !== false } );
 
-            if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
+            if (ca_pos != null && ca_pos.bbox != null && offset_x >= ca_pos.bbox.x0 && offset_x < ca_pos.bbox.x1 && offset_y >= ca_pos.bbox.y0 && offset_y < ca_pos.bbox.y1) {
                 plot.eosHover ();
                 placeholder.css("cursor", "pointer");
             }
@@ -154,7 +161,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         }
 
         function onPlotClick (event , pos, item) {
-            var ca_bbox = getContextArrowBBox (),
+            var ca_pos = getContextArrowPos (),
                 offset = plot.getPlotOffset(),
                 placeholder = plot.getPlaceholder(),
                 placeholder_offset = placeholder.offset ();
@@ -166,13 +173,15 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 // check if we're over a null item
                 item = findNearbyNullItem ( offset_x , offset_y , function ( series ) { return series["eoshighlight"] && series["clickable"] !== false } );
 
-            if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
+            if (ca_pos != null && ca_pos.bbox != null && offset_x >= ca_pos.bbox.x0 && offset_x < ca_pos.bbox.x1 && offset_y >= ca_pos.bbox.y0 && offset_y < ca_pos.bbox.y1) {
                 // open a context menu
+                requestContextMenu ()
                 return false;
             }
             else if (item != null) {
                 if (item.series === eosselectedseries && eosselectedindexes.length === 1 && item.dataIndex === eosselectedindexes[0]) {
                     // open a context menu
+                    requestContextMenu ()
                     return false;
                 }
                 else {
@@ -182,6 +191,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             else {
                 if (checkInSelectionArea(offset_x, offset_y)) {
                     // open a context menu
+                    requestContextMenu ()
                     return false;
                 }
                 else {
@@ -191,7 +201,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         }
 
         function onContextMenu(event) {
-            var ca_bbox = getContextArrowBBox (),
+            var ca_pos = getContextArrowPos (),
                 offset = plot.getPlotOffset(),
                 placeholder = plot.getPlaceholder(),
                 placeholder_offset = placeholder.offset ();
@@ -203,15 +213,22 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
 
             var item = plot.findNearbyItem (offset_x, offset_y, sf) || findNearbyNullItem (offset_x, offset_y, sf);
 
-            if (ca_bbox != null && offset_x >= ca_bbox.x0 && offset_x < ca_bbox.x1 && offset_y >= ca_bbox.y0 && offset_y < ca_bbox.y1) {
+            if (ca_pos != null && ca_pos.bbox != null && offset_x >= ca_pos.bbox.x0 && offset_x < ca_pos.bbox.x1 && offset_y >= ca_pos.bbox.y0 && offset_y < ca_pos.bbox.y1) {
                 // open a context menu
+                requestContextMenu ()
                 return false;
             }
             else if (item != null) {
                 plot.eosSelect (item.series, item.dataIndex);
                 // open a context menu
+                requestContextMenu ()
                 return false;
             }
+        }
+
+        function onMouseDown(event) {
+            // don't want to mess around too much with this event - just snoop on it for this
+            plot.getPlaceholder().trigger ( "hideContextMenu" );
         }
 
         function onDragStart(event, dragdrop) {
@@ -294,52 +311,65 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             plot.triggerRedrawOverlay();
         }
 
-        function getContextArrowBBox () {
+        function getContextArrowPos () {
             if (!eosselectedindexes.length)
                 // there ain't one
                 return null;
 
-            var point, bbox, x_midpoint, x_sum = 0, y_coord, outer_radius = eosselectedseries.points.radius + eosselectedseries.points.lineWidth*0.5;
+            var point, bbox, x_midpoint, x_sum = 0, y_coord, outer_radius = eosselectedseries.points.radius + eosselectedseries.points.lineWidth*0.5 , bbox_null = false;
             for (var i = 0; i < eosselectedindexes.length; i++) {
                 point = eosselectedseries.datapoints.points.slice(eosselectedindexes[i] * eosselectedseries.datapoints.pointsize, (eosselectedindexes[i]+1) * eosselectedseries.datapoints.pointsize)
                 x_sum += eosselectedseries.xaxis.p2c(point[0]);
             }
             x_midpoint = x_sum / eosselectedindexes.length;
 
-            bbox = { x0: x_midpoint - eosselectedseries.points.radius, x1: x_midpoint + eosselectedseries.points.radius };
+            pos = {
+                tip : {
+                    x : Math.max ( 0 , Math.min ( x_midpoint , plot.width() ) ) // clamped x
+                } ,
+                bbox : {
+                    x0: x_midpoint - eosselectedseries.points.radius ,
+                    x1: x_midpoint + eosselectedseries.points.radius
+                }
+            }
 
-            if (bbox.x1 < 0 || bbox.x0 > plot.width())
+            if (pos.bbox.x1 < 0 || pos.bbox.x0 > plot.width())
                 // off the side
-                return null;
+                bbox_null = true;
 
             if (eosselectedindexes.length > 1) {
-                bbox.y0 = outer_radius;
-                bbox.y1 = outer_radius*2;
+                pos.bbox.y0 = pos.tip.y = outer_radius;
+                pos.bbox.y1 = outer_radius*2;
             }
             else {
                 // point should still be the last (& only) point
                 y_coord = point[1] == null ? plot.height()/2 : eosselectedseries.yaxis.p2c(point[1]);
                 if (y_coord >= 3*outer_radius) {
                     // there's enough space to show an arrow normally
-                    bbox.y0 = y_coord - 3*outer_radius;
-                    bbox.y1 = y_coord - 2*outer_radius;
+                    pos.bbox.y0 = pos.tip.y = y_coord - 3*outer_radius;
+                    pos.bbox.y1 = y_coord - 2*outer_radius;
                 }
                 else if (y_coord >= 2*outer_radius) {
                     // there's enough space to show an arrow stuck to the top
-                    bbox.y0 = 0;
-                    bbox.y1 = outer_radius;
+                    pos.bbox.y0 = pos.tip.y = 0;
+                    pos.bbox.y1 = outer_radius;
                 }
                 else if (y_coord >= outer_radius) {
                     // there's not really enough space - stick it to the top
                     // of the selected indicator and let it disappear off the top
-                    bbox.y0 = y_coord - 2*outer_radius;
-                    bbox.y1 = y_coord - outer_radius;
+                    pos.bbox.y0 = pos.tip.y = y_coord - 2*outer_radius;
+                    pos.bbox.y1 = y_coord - outer_radius;
                 }
-                else
-                    return null;
+                else {
+                    pos.tip.y = 0;
+                    bbox_null = true;
+                }
             }
 
-            return bbox;
+            if ( bbox_null )
+                pos.bbox = null;
+
+            return pos;
         }
 
         plot.eosSelect = function (s, pointindex_from, pointindex_to) {
@@ -598,6 +628,10 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                     break;
                 }
             }
+
+            // we want this handler to be added whether or not a series is "active"
+            eventHolder.on("mousedown", onMouseDown);
+
             if (!enabled)
                 return;
 
@@ -618,7 +652,7 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             var plotOffset = plot.getPlotOffset();
             var point, point_x, point_y, xaxis, yaxis, radius;
             var x, y, xa, xb, i;
-            var ca_bbox = getContextArrowBBox ();
+            var ca_pos = getContextArrowPos ();
 
             ctx.save();
             ctx.translate(plotOffset.left, plotOffset.top);
@@ -702,13 +736,13 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
                 }
 
                 // draw context arrow
-                if (eosselectedseries.eoshighlight === "active" && ca_bbox != null) {
+                if (eosselectedseries.eoshighlight === "active" && ca_pos != null && ca_pos.bbox != null) {
                     ctx.fillStyle = $.color.parse(eosselectedseries.color).toString();
                     ctx.beginPath();
-                        ctx.moveTo(ca_bbox.x0, ca_bbox.y1);
-                        ctx.lineTo((ca_bbox.x0 + ca_bbox.x1)*0.5, ca_bbox.y0);
-                        ctx.lineTo(ca_bbox.x1, ca_bbox.y1);
-                        ctx.lineTo(ca_bbox.x0, ca_bbox.y1);
+                        ctx.moveTo(ca_pos.bbox.x0, ca_pos.bbox.y1);
+                        ctx.lineTo((ca_pos.bbox.x0 + ca_pos.bbox.x1)*0.5, ca_pos.bbox.y0);
+                        ctx.lineTo(ca_pos.bbox.x1, ca_pos.bbox.y1);
+                        ctx.lineTo(ca_pos.bbox.x0, ca_pos.bbox.y1);
                     ctx.closePath();
 
                     ctx.fill();
@@ -755,6 +789,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             placeholder.off("plothover", onPlotHover);
             placeholder.off("plotclick", onPlotClick);
             eventHolder.off("contextmenu", onContextMenu);
+
+            eventHolder.off("mousedown", onMouseDown);
 
             eventHolder.off("dragstart", onDragStart);
             eventHolder.off("drag", onDrag);
