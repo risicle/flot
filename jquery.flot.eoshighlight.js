@@ -432,6 +432,13 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             plot.triggerRedrawOverlay();
         }
 
+        plot.eosGetSelection = function () {
+            return {
+                series : eosselectedseries ,
+                indexes : eosselectedindexes.slice ()
+            };
+	}
+
         plot.hooks.processRawData.push(function (plot, series, data, datapoints) {
             if (!series.eoshighlight)
                 return;
