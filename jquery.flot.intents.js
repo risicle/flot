@@ -8,8 +8,7 @@ Accepts data in a slightly odd side-channel way that allows us to keep a referen
     var options = {
         series: {
            intents: null , // or array of intents for points in series
-           intentsFillColorFunction: null ,
-           intentsStripeFunction: null
+           intentsFillStyleFunction: null // or function ( context , intent ) returning fillStyle suitable for assigning to a context
         }
     };
 
@@ -28,9 +27,9 @@ Accepts data in a slightly odd side-channel way that allows us to keep a referen
             // off plot area
             return;
 
-        var fillcolor = series.intentsFillColorFunction ( intent );
+        var fillstyle = series.intentsFillStyleFunction ( ctx , intent );
 
-        if ( fillcolor == null )
+        if ( fillstyle == null )
             return;
 
         ctx.save ();
@@ -38,7 +37,7 @@ Accepts data in a slightly odd side-channel way that allows us to keep a referen
                 ctx.rect(0, 0, plot.width(), plot.height());
             ctx.clip();
 
-            ctx.fillStyle = fillcolor;
+            ctx.fillStyle = fillstyle;
 
             ctx.beginPath();
                 var x_min_coord = series.xaxis.p2c ( x_min );
@@ -49,7 +48,7 @@ Accepts data in a slightly odd side-channel way that allows us to keep a referen
 
     function init(plot) {
         plot.hooks.drawSeries.push(function (plot, ctx, series) {
-            if (!(series.intents && $.isFunction(series.intentsFillColorFunction)))
+            if (!(series.intents && $.isFunction(series.intentsFillStyleFunction)))
                 return;
 
             var plotOffset = plot.getPlotOffset();
