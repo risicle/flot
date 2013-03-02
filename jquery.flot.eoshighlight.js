@@ -7,7 +7,8 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
         series: {
             eoshighlight: false , // or "active" or "passive" - whether line's points exhibit eoshighlight behaviour
             eoshighlightRangeFillColor: "rgba(0,0,0,0.2)" ,
-            eoshighlightNullMarkingColor: "rgba(0,0,0,0.2)"
+            eoshighlightNullMarkingColor: "rgba(0,0,0,0.2)" ,
+            eoshighlightNavigateExpandRangeToSelection: false
         }
     };
 
@@ -401,6 +402,11 @@ Flot plugin for showing "eyes on sticks" highlight visualization for tsbp
             }
             placeholder.trigger ( "ploteosselected" , [ eosselectedseries == null ? null : $.inArray ( eosselectedseries , series ) , eosselectedindexes ] );
             plot.triggerRedrawOverlay();
+
+            // this is intended to work only if navigate plugin is active
+            if ( eosselectedseries != null && eosselectedseries.eoshighlightNavigateExpandRangeToSelection && pointindex_from != null && $.isFunction ( plot.setRanges ) )
+                // possibly expand plot's ranges to show new selection
+                plot.setRanges ( { "xaxis" : { "from" : Math.min ( eosselectedseries.xaxis.options.min , eosselectedseries.datapoints.points[pointindex_from * eosselectedseries.datapoints.pointsize] ) , "to" : Math.max ( eosselectedseries.xaxis.options.max , eosselectedseries.datapoints.points[(pointindex_to != null ? pointindex_to : pointindex_from) * eosselectedseries.datapoints.pointsize] ) } } );
         }
 
         plot.eosHover = function (s, pointindex_from, pointindex_to) {
