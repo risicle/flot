@@ -1957,8 +1957,7 @@
                     if (symbol == "circle")
                         ctx.arc(x, y, radius, 0, shadow ? Math.PI : Math.PI * 2, false);
                     else
-                        var dataseriesindex = (i>0) ? i/2 : i;
-                        symbol(ctx, x, y, radius, shadow, dataseriesindex);
+                        symbol(ctx, x, y, radius, shadow, i * 0.5 /*dataseriesindex*/);
                     ctx.closePath();
                     
                     if (fillStyle) {
